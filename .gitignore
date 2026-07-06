@@ -40,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local-only mcp config
+.mcp.json
+
+# debugging artifacts
+.playwright-mcp/
+*-after-fix.png
