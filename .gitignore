@@ -43,7 +43,11 @@ next-env.d.ts
 
 # local-only mcp config
 .mcp.json
+.claude/settings.local.json
 
 # debugging artifacts
 .playwright-mcp/
 *-after-fix.png
+
+# shrimp-task-manager local task data
+shrimp_data/
