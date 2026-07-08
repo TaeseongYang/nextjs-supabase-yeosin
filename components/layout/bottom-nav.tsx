@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Home, Building2, Calendar, User } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/", label: "홈", icon: Home },
+  { href: "/categories", label: "홈", icon: Home },
   { href: "/hospitals", label: "병원", icon: Building2 },
   { href: "/events", label: "이벤트", icon: Calendar },
   { href: "/mypage", label: "마이페이지", icon: User },
