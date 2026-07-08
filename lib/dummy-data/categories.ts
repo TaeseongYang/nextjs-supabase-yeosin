@@ -6,6 +6,7 @@ import type { Category } from "@/lib/types/domain";
  * 매핑은 카테고리 홈 UI 구현(Task 004)에서 처리한다.
  */
 export const dummyCategories: Category[] = [
+  { id: "cat-9", name: "제모", iconKey: "wind", slug: "hair-removal" },
   { id: "cat-1", name: "피부", iconKey: "sparkles", slug: "skin" },
   { id: "cat-2", name: "눈성형", iconKey: "eye", slug: "eyes" },
   { id: "cat-3", name: "코성형", iconKey: "triangle", slug: "nose" },
@@ -19,7 +20,6 @@ export const dummyCategories: Category[] = [
     slug: "botox-filler",
   },
   { id: "cat-8", name: "리프팅", iconKey: "trending-up", slug: "lifting" },
-  { id: "cat-9", name: "제모", iconKey: "wind", slug: "hair-removal" },
   {
     id: "cat-10",
     name: "모발이식",
