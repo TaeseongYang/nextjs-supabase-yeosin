@@ -53,7 +53,9 @@ export async function updateSession(request: NextRequest) {
     "/hospitals",
     "/events",
     "/mypage",
-    "/admin/login",
+    // /admin 하위 전체: 관리자 인증을 사용하지 않는 실험용 플랫폼이므로
+    // /admin은 항상 공개 경로로 유지한다.
+    "/admin",
   ];
 
   if (
