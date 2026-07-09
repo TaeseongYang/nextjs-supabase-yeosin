@@ -9,11 +9,9 @@ import { ReviewCard } from "@/components/review/review-card";
 import { ConsultButton } from "@/components/layout/consult-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { buildReviewSummaryViewModel } from "@/lib/utils/review-summary-view-model";
-import {
-  dummyProducts,
-  dummyReviews,
-  dummyReviewSummaries,
-} from "@/lib/dummy-data";
+import { getProductById } from "@/lib/queries/products";
+import { getReviewSummaryByAttribute } from "@/lib/queries/review-summaries";
+import { getReviewsByProductAndAttribute } from "@/lib/queries/reviews";
 import {
   REVIEW_ATTRIBUTES,
   ATTRIBUTE_LABELS,
@@ -36,15 +34,14 @@ async function ProductReviewsByAttribute({
   const { productId, attribute } = await params;
   if (!isReviewAttributeType(attribute)) notFound();
 
-  const product = dummyProducts.find((p) => p.id === productId);
-  if (!product) notFound();
+  const productWithHospital = await getProductById(productId);
+  if (!productWithHospital) notFound();
 
-  const summary = dummyReviewSummaries.find(
-    (s) => s.productId === productId && s.attribute === attribute,
-  );
+  const summary = await getReviewSummaryByAttribute(productId, attribute);
   const viewModel = summary ? buildReviewSummaryViewModel(summary) : null;
-  const filteredReviews = dummyReviews.filter(
-    (r) => r.productId === productId && r.attributeTags.includes(attribute),
+  const filteredReviews = await getReviewsByProductAndAttribute(
+    productId,
+    attribute,
   );
 
   return (

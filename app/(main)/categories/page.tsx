@@ -1,11 +1,13 @@
 import { CategoryIconGrid } from "@/components/category/category-icon-grid";
-import { dummyCategories } from "@/lib/dummy-data";
+import { getCategories } from "@/lib/queries/categories";
 
-export default function CategoriesPage() {
+export default async function CategoriesPage() {
+  const categories = await getCategories();
+
   return (
     <div>
       <h1 className="px-4 pt-4 text-lg font-semibold">카테고리</h1>
-      <CategoryIconGrid categories={dummyCategories} />
+      <CategoryIconGrid categories={categories} />
     </div>
   );
 }

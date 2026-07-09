@@ -9,11 +9,9 @@ import { ConsultButton } from "@/components/layout/consult-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { buildReviewSummaryViewModel } from "@/lib/utils/review-summary-view-model";
-import {
-  dummyProducts,
-  dummyReviews,
-  dummyReviewSummaries,
-} from "@/lib/dummy-data";
+import { getProductById } from "@/lib/queries/products";
+import { getReviewsByProduct } from "@/lib/queries/reviews";
+import { getOverallReviewSummary } from "@/lib/queries/review-summaries";
 import { REVIEW_ATTRIBUTES } from "@/lib/types/attribute";
 
 interface ProductReviewsPageProps {
@@ -22,20 +20,18 @@ interface ProductReviewsPageProps {
 
 async function ProductReviews({ params }: ProductReviewsPageProps) {
   const { productId } = await params;
-  const product = dummyProducts.find((p) => p.id === productId);
-  if (!product) notFound();
+  const result = await getProductById(productId);
+  if (!result) notFound();
 
-  const productReviews = dummyReviews.filter((r) => r.productId === productId);
+  const productReviews = await getReviewsByProduct(productId);
   const reviewCount = productReviews.length;
   const averageRating =
     reviewCount === 0
       ? 0
       : productReviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount;
 
-  // 전체 요약(attribute === null)만 조회한다. prod-4 이후 상품은 요약 자체가 없을 수 있다.
-  const overallSummary = dummyReviewSummaries.find(
-    (s) => s.productId === productId && s.attribute === null,
-  );
+  // 전체 요약(attribute === null)만 조회한다. 요약이 없는 상품도 존재한다.
+  const overallSummary = await getOverallReviewSummary(productId);
   const overallViewModel = overallSummary
     ? buildReviewSummaryViewModel(overallSummary)
     : null;

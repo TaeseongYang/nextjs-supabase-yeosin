@@ -1,13 +1,10 @@
+import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { ProductCard } from "@/components/product/product-card";
 import { buildProductCardViewModels } from "@/lib/utils/product-view-model";
-import {
-  dummyCategories,
-  dummyHospitals,
-  dummyProducts,
-  dummyReviews,
-} from "@/lib/dummy-data";
+import { getCategoryById } from "@/lib/queries/categories";
+import { getProductsByCategory } from "@/lib/queries/products";
 
 interface CategoryProductListPageProps {
   params: Promise<{ categoryId: string }>;
@@ -15,27 +12,27 @@ interface CategoryProductListPageProps {
 
 async function CategoryProductList({ params }: CategoryProductListPageProps) {
   const { categoryId } = await params;
-  const category = dummyCategories.find((c) => c.id === categoryId);
+  const category = await getCategoryById(categoryId);
+  if (!category) notFound();
 
-  const categoryProducts = dummyProducts.filter(
-    (p) => p.categoryId === categoryId,
-  );
-  const products = buildProductCardViewModels(
-    categoryProducts,
-    dummyHospitals,
-    dummyReviews,
+  const { products, hospitals, reviews } =
+    await getProductsByCategory(categoryId);
+  const productViewModels = buildProductCardViewModels(
+    products,
+    hospitals,
+    reviews,
   );
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <h1 className="text-lg font-semibold">{category?.name ?? "카테고리"}</h1>
-      {products.length === 0 ? (
+      <h1 className="text-lg font-semibold">{category.name}</h1>
+      {productViewModels.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
           등록된 상품이 없습니다.
         </p>
       ) : (
         <div className="flex flex-col gap-3">
-          {products.map((product) => (
+          {productViewModels.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
