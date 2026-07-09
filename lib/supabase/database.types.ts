@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          created_at: string
+          icon_key: string
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          icon_key: string
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          icon_key?: string
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      hospitals: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          region: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          region: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          region?: string
+        }
+        Relationships: []
+      }
+      participants: {
+        Row: {
+          age: number
+          created_at: string
+          gender: string
+          has_online_experience: string
+          id: string
+        }
+        Insert: {
+          age: number
+          created_at?: string
+          gender: string
+          has_online_experience: string
+          id?: string
+        }
+        Update: {
+          age?: number
+          created_at?: string
+          gender?: string
+          has_online_experience?: string
+          id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -41,15 +110,196 @@ export type Database = {
         }
         Relationships: []
       }
+      review_attribute_tags: {
+        Row: {
+          attribute: Database["public"]["Enums"]["review_attribute"]
+          review_id: string
+        }
+        Insert: {
+          attribute: Database["public"]["Enums"]["review_attribute"]
+          review_id: string
+        }
+        Update: {
+          attribute?: Database["public"]["Enums"]["review_attribute"]
+          review_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_attribute_tags_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_summaries: {
+        Row: {
+          attribute: Database["public"]["Enums"]["review_attribute"] | null
+          id: string
+          negative_bullets: string[]
+          negative_ratio: number
+          positive_bullets: string[]
+          positive_ratio: number
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          attribute?: Database["public"]["Enums"]["review_attribute"] | null
+          id?: string
+          negative_bullets?: string[]
+          negative_ratio: number
+          positive_bullets?: string[]
+          positive_ratio: number
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          attribute?: Database["public"]["Enums"]["review_attribute"] | null
+          id?: string
+          negative_bullets?: string[]
+          negative_ratio?: number
+          positive_bullets?: string[]
+          positive_ratio?: number
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_summaries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reviews: {
+        Row: {
+          author_label: string
+          content: string
+          created_at: string
+          id: string
+          product_id: string
+          rating: number
+        }
+        Insert: {
+          author_label: string
+          content: string
+          created_at?: string
+          id?: string
+          product_id: string
+          rating: number
+        }
+        Update: {
+          author_label?: string
+          content?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      treatment_products: {
+        Row: {
+          category_id: string
+          created_at: string
+          detail_image_urls: string[]
+          discount_price: number
+          hospital_id: string
+          id: string
+          includes_aftercare: boolean
+          includes_anesthesia: boolean
+          includes_vat: boolean
+          name: string
+          original_price: number
+          side_effect_notice: string
+          thumbnail_url: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          detail_image_urls?: string[]
+          discount_price: number
+          hospital_id: string
+          id?: string
+          includes_aftercare?: boolean
+          includes_anesthesia?: boolean
+          includes_vat?: boolean
+          name: string
+          original_price: number
+          side_effect_notice?: string
+          thumbnail_url?: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          detail_image_urls?: string[]
+          discount_price?: number
+          hospital_id?: string
+          id?: string
+          includes_aftercare?: boolean
+          includes_anesthesia?: boolean
+          includes_vat?: boolean
+          name?: string
+          original_price?: number
+          side_effect_notice?: string
+          thumbnail_url?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treatment_products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treatment_products_hospital_id_fkey"
+            columns: ["hospital_id"]
+            isOneToOne: false
+            referencedRelation: "hospitals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      upsert_review_with_tags: {
+        Args: {
+          p_attribute_tags: Database["public"]["Enums"]["review_attribute"][]
+          p_author_label: string
+          p_content: string
+          p_created_at: string
+          p_product_id: string
+          p_rating: number
+          p_review_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
-      [_ in never]: never
+      review_attribute:
+        | "medical_staff"
+        | "service"
+        | "price"
+        | "effect"
+        | "pain"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -176,6 +426,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      review_attribute: ["medical_staff", "service", "price", "effect", "pain"],
+    },
   },
 } as const
