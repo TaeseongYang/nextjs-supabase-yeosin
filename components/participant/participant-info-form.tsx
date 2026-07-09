@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { submitParticipantInfo } from "@/lib/actions/participant";
 import {
   GENDER_OPTIONS,
+  HAS_ONLINE_EXPERIENCE_OPTIONS,
   participantSchema,
 } from "@/lib/validations/participant-schema";
 import type { ParticipantFormViewModel } from "@/lib/types/view-models";
@@ -25,9 +26,11 @@ const emptyForm: ParticipantFormViewModel = {
   hasOnlineExperience: "",
 };
 
-// 저장 로직 없이 UI만 구현 — 추후 Supabase 연동 등으로 실험 참여자 데이터를 저장할 예정.
+// 참여자 정보 입력 완료 여부는 서버(Server Action)가 httpOnly 쿠키에 기록하며,
+// proxy.ts가 이 쿠키를 기준으로 실험 환경 접근을 서버 사이드에서 가드한다.
+// (이름 등 개인식별 정보는 수집하지 않는다.)
 export function ParticipantInfoForm() {
-  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState<ParticipantFormViewModel>(emptyForm);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -43,6 +46,8 @@ export function ParticipantInfoForm() {
     e.preventDefault();
     setSubmitSuccess(false);
 
+    // 클라이언트 측 검증은 즉각적인 사용자 피드백(UX)용이며,
+    // 실제 신뢰 기준은 submitParticipantInfo 내부의 서버 측 재검증이다.
     const result = participantSchema.safeParse({
       gender: form.gender,
       age: Number(form.age),
@@ -55,9 +60,20 @@ export function ParticipantInfoForm() {
 
     setFieldErrors({});
     setSubmitSuccess(true);
-    setTimeout(() => {
-      router.push("/categories");
-    }, 500);
+
+    const formData = new FormData();
+    formData.set("gender", result.data.gender);
+    formData.set("age", String(result.data.age));
+    formData.set("hasOnlineExperience", result.data.hasOnlineExperience);
+
+    startTransition(async () => {
+      const response = await submitParticipantInfo(formData);
+      // submitParticipantInfo는 성공 시 redirect()를 던지므로 여기 도달하면 실패한 경우다.
+      if (response && !response.success) {
+        setSubmitSuccess(false);
+        setFieldErrors(response.fieldErrors);
+      }
+    });
   };
 
   return (
@@ -121,22 +137,19 @@ export function ParticipantInfoForm() {
               }
               className="grid grid-cols-2 gap-3"
             >
-              <label htmlFor="experience-yes">
-                <RadioGroupItem
-                  value="yes"
-                  id="experience-yes"
-                  className="peer sr-only"
-                />
-                <span className={toggleOptionClassName}>예</span>
-              </label>
-              <label htmlFor="experience-no">
-                <RadioGroupItem
-                  value="no"
-                  id="experience-no"
-                  className="peer sr-only"
-                />
-                <span className={toggleOptionClassName}>아니오</span>
-              </label>
+              {HAS_ONLINE_EXPERIENCE_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  htmlFor={`experience-${option.value}`}
+                >
+                  <RadioGroupItem
+                    value={option.value}
+                    id={`experience-${option.value}`}
+                    className="peer sr-only"
+                  />
+                  <span className={toggleOptionClassName}>{option.label}</span>
+                </label>
+              ))}
             </RadioGroup>
             {fieldErrors.hasOnlineExperience && (
               <p className="text-sm text-destructive">
@@ -151,8 +164,12 @@ export function ParticipantInfoForm() {
             </p>
           )}
 
-          <Button type="submit" className="w-full">
-            시작하기
+          {fieldErrors._form && (
+            <p className="text-sm text-destructive">{fieldErrors._form[0]}</p>
+          )}
+
+          <Button type="submit" className="w-full" disabled={isPending}>
+            {isPending ? "이동 중..." : "시작하기"}
           </Button>
         </form>
       </CardContent>
