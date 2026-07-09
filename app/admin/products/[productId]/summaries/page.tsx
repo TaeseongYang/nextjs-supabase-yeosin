@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { ReviewSummaryForm } from "@/components/admin/review-summary-form";
-import { dummyProducts, dummyReviewSummaries } from "@/lib/dummy-data";
+import { getProductById } from "@/lib/queries/products";
+import { getReviewSummariesByProduct } from "@/lib/queries/review-summaries";
 
 interface AdminReviewSummaryPageProps {
   params: Promise<{ productId: string }>;
@@ -11,18 +12,18 @@ interface AdminReviewSummaryPageProps {
 async function AdminReviewSummary({ params }: AdminReviewSummaryPageProps) {
   const { productId } = await params;
 
-  const product = dummyProducts.find((p) => p.id === productId);
-  if (!product) {
+  const result = await getProductById(productId);
+  if (!result) {
     notFound();
   }
 
-  const initialSummaries = dummyReviewSummaries.filter(
-    (summary) => summary.productId === productId,
-  );
+  const initialSummaries = await getReviewSummariesByProduct(productId);
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold">{product.name} 리뷰 요약 관리</h1>
+    <div className="mx-auto flex max-w-5xl flex-col gap-4">
+      <h1 className="text-lg font-semibold">
+        {result.product.name} 리뷰 요약 관리
+      </h1>
       <ReviewSummaryForm
         productId={productId}
         initialSummaries={initialSummaries}

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { saveReview } from "@/lib/actions/reviews";
 import { ATTRIBUTE_LABELS, REVIEW_ATTRIBUTES } from "@/lib/types/attribute";
 import { reviewSchema } from "@/lib/validations/review-schema";
 import type { Review } from "@/lib/types/domain";
@@ -15,7 +16,7 @@ import type { ReviewAttributeType } from "@/lib/types/attribute";
 interface ReviewFormProps {
   productId: string;
   initialReview?: Review;
-  onSubmit: (review: Review) => void;
+  onSuccess?: () => void;
   onCancel?: () => void;
 }
 
@@ -30,14 +31,16 @@ function buildEmptyForm(productId: string) {
   };
 }
 
-// 개별 리뷰 신규 추가/수정 폼. 실제 INSERT/UPDATE는 Task 015(Server Action)에서
-// 구현될 예정이며, 이 단계에서는 zod 검증 후 상위 컴포넌트의 로컬 state만 갱신한다.
+// 개별 리뷰 신규 추가/수정 폼. zod 검증 통과 후 saveReview 서버 액션(RPC 기반
+// 원자적 저장)을 호출한다. 신규 리뷰의 id는 클라이언트에서 생성하지 않고
+// RPC 함수 내부에서 gen_random_uuid() 기본값으로 서버가 생성한다.
 export function ReviewForm({
   productId,
   initialReview,
-  onSubmit,
+  onSuccess,
   onCancel,
 }: ReviewFormProps) {
+  const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState(
     initialReview
       ? {
@@ -71,15 +74,27 @@ export function ReviewForm({
     }
 
     setFieldErrors({});
-    onSubmit({
-      id: initialReview?.id ?? crypto.randomUUID(),
-      ...result.data,
-      createdAt: form.createdAt,
-    });
 
-    if (!initialReview) {
-      setForm(buildEmptyForm(productId));
-    }
+    const formData = new FormData();
+    formData.set("productId", result.data.productId);
+    formData.set("authorLabel", result.data.authorLabel);
+    formData.set("rating", String(result.data.rating));
+    formData.set("content", result.data.content);
+    formData.set("attributeTags", JSON.stringify(result.data.attributeTags));
+    formData.set("createdAt", form.createdAt);
+
+    startTransition(async () => {
+      const response = await saveReview(initialReview?.id ?? null, formData);
+      if (!response.success) {
+        setFieldErrors(response.fieldErrors);
+        return;
+      }
+
+      if (!initialReview) {
+        setForm(buildEmptyForm(productId));
+      }
+      onSuccess?.();
+    });
   };
 
   return (
@@ -160,12 +175,21 @@ export function ReviewForm({
         </div>
       </div>
 
+      {fieldErrors._form && (
+        <p className="text-sm text-red-500">{fieldErrors._form[0]}</p>
+      )}
+
       <div className="flex gap-2">
-        <Button type="submit" className="flex-1">
-          {initialReview ? "수정 완료" : "리뷰 추가"}
+        <Button type="submit" className="flex-1" disabled={isPending}>
+          {isPending ? "저장 중..." : initialReview ? "수정 완료" : "리뷰 추가"}
         </Button>
         {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isPending}
+          >
             취소
           </Button>
         )}

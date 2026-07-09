@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 import { BulletListInput } from "@/components/admin/bullet-list-input";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DonutChart } from "@/components/charts/donut-chart";
+import { upsertReviewSummary } from "@/lib/actions/review-summaries";
 import { ATTRIBUTE_LABELS, REVIEW_ATTRIBUTES } from "@/lib/types/attribute";
 import { reviewSummarySchema } from "@/lib/validations/review-summary-schema";
 import type { ReviewAttributeType } from "@/lib/types/attribute";
@@ -46,68 +47,117 @@ function buildEmptyForm(
   };
 }
 
-// 리뷰 요약 입력 폼. 실제 저장은 Task 015(Server Action)에서 구현될 예정이며,
-// 이 단계에서는 zod 검증 후 성공 안내와 로컬 state 반영만 수행한다.
+function buildFormFromSummary(
+  productId: string,
+  attribute: ReviewAttributeType | null,
+  summary: ReviewSummary | undefined,
+): ReviewSummaryFormViewModel {
+  if (!summary) return buildEmptyForm(productId, attribute);
+  return {
+    productId,
+    attribute: summary.attribute,
+    positiveRatio: summary.positiveRatio,
+    negativeRatio: summary.negativeRatio,
+    positiveBullets: summary.positiveBullets,
+    negativeBullets: summary.negativeBullets,
+  };
+}
+
+// 리뷰 요약 입력 폼. 탭(전체+5속성)마다 독립적인 폼 상태를 갖고, 저장 시
+// upsertReviewSummary 서버 액션(select 후 update/insert 분기)을 호출한다.
 export function ReviewSummaryForm({
   productId,
   initialSummaries,
 }: ReviewSummaryFormProps) {
-  const [summaries, setSummaries] = useState<ReviewSummary[]>(initialSummaries);
+  const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<TabKey>("all");
-  const [formError, setFormError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
-  const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  const attribute = toAttribute(activeTab);
-  const existing = summaries.find((s) => s.attribute === attribute);
-  const form: ReviewSummaryFormViewModel = existing
-    ? {
-        productId,
-        attribute: existing.attribute,
-        positiveRatio: existing.positiveRatio,
-        negativeRatio: existing.negativeRatio,
-        positiveBullets: existing.positiveBullets,
-        negativeBullets: existing.negativeBullets,
-      }
-    : buildEmptyForm(productId, attribute);
+  // 탭별 폼 상태를 키-값 맵으로 관리해, 탭 전환 시 서로 다른 탭의 입력값이
+  // 섞이지 않고 각자 독립적으로 유지되도록 한다.
+  const [formsByTab, setFormsByTab] = useState<
+    Record<TabKey, ReviewSummaryFormViewModel>
+  >(
+    () =>
+      Object.fromEntries(
+        TAB_KEYS.map((tab) => {
+          const attribute = toAttribute(tab);
+          const summary = initialSummaries.find(
+            (s) => s.attribute === attribute,
+          );
+          return [tab, buildFormFromSummary(productId, attribute, summary)];
+        }),
+      ) as Record<TabKey, ReviewSummaryFormViewModel>,
+  );
+
+  const [fieldErrorsByTab, setFieldErrorsByTab] = useState<
+    Partial<Record<TabKey, Record<string, string[]>>>
+  >({});
+  const [submitSuccessTab, setSubmitSuccessTab] = useState<TabKey | null>(null);
+
+  const form = formsByTab[activeTab];
+  const fieldErrors = fieldErrorsByTab[activeTab] ?? {};
 
   const updateForm = (partial: Partial<ReviewSummaryFormViewModel>) => {
-    const next: ReviewSummary = {
-      id: existing?.id ?? `sum-${productId}-${activeTab}`,
-      productId,
-      attribute,
-      positiveRatio: form.positiveRatio,
-      negativeRatio: form.negativeRatio,
-      positiveBullets: form.positiveBullets,
-      negativeBullets: form.negativeBullets,
-      ...partial,
-    };
-
-    setSummaries((prev) => {
-      const filtered = prev.filter((s) => s.attribute !== attribute);
-      return [...filtered, next];
-    });
+    setFormsByTab((prev) => ({
+      ...prev,
+      [activeTab]: { ...prev[activeTab], ...partial },
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError(null);
-    setSubmitSuccess(false);
+    setSubmitSuccessTab(null);
 
     const result = reviewSummarySchema.safeParse(form);
     if (!result.success) {
-      setFieldErrors(result.error.flatten().fieldErrors);
+      setFieldErrorsByTab((prev) => ({
+        ...prev,
+        [activeTab]: result.error.flatten().fieldErrors,
+      }));
       return;
     }
 
-    // 스키마에 없는 커스텀 검증: 긍정/부정 비율 합은 100을 넘을 수 없다.
+    // 스키마에 없는 커스텀 검증: 긍정/부정 비율 합은 100을 초과할 수 없다.
     if (form.positiveRatio + form.negativeRatio > 100) {
-      setFormError("긍정/부정 비율의 합은 100을 초과할 수 없습니다.");
+      setFieldErrorsByTab((prev) => ({
+        ...prev,
+        [activeTab]: {
+          _form: ["긍정/부정 비율의 합은 100을 초과할 수 없습니다."],
+        },
+      }));
       return;
     }
 
-    setFieldErrors({});
-    setSubmitSuccess(true);
+    setFieldErrorsByTab((prev) => ({ ...prev, [activeTab]: {} }));
+
+    const formData = new FormData();
+    formData.set("productId", result.data.productId);
+    if (result.data.attribute) {
+      formData.set("attribute", result.data.attribute);
+    }
+    formData.set("positiveRatio", String(result.data.positiveRatio));
+    formData.set("negativeRatio", String(result.data.negativeRatio));
+    formData.set(
+      "positiveBullets",
+      JSON.stringify(result.data.positiveBullets),
+    );
+    formData.set(
+      "negativeBullets",
+      JSON.stringify(result.data.negativeBullets),
+    );
+
+    const submittedTab = activeTab;
+    startTransition(async () => {
+      const response = await upsertReviewSummary(formData);
+      if (!response.success) {
+        setFieldErrorsByTab((prev) => ({
+          ...prev,
+          [submittedTab]: response.fieldErrors,
+        }));
+        return;
+      }
+      setSubmitSuccessTab(submittedTab);
+    });
   };
 
   const donutData = [
@@ -189,16 +239,15 @@ export function ReviewSummaryForm({
                 onChange={(values) => updateForm({ negativeBullets: values })}
               />
 
-              {formError && <p className="text-sm text-red-500">{formError}</p>}
-              {submitSuccess && (
-                <p className="text-sm text-green-600">
-                  저장되었습니다. (더미 처리, 실제 저장은 Task 015에서 구현
-                  예정)
-                </p>
+              {fieldErrors._form && (
+                <p className="text-sm text-red-500">{fieldErrors._form[0]}</p>
+              )}
+              {submitSuccessTab === tab && (
+                <p className="text-sm text-green-600">저장되었습니다.</p>
               )}
 
-              <Button type="submit" className="w-full">
-                저장
+              <Button type="submit" className="w-full" disabled={isPending}>
+                {isPending ? "저장 중..." : "저장"}
               </Button>
             </form>
           )}
