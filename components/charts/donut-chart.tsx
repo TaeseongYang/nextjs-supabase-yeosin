@@ -9,8 +9,8 @@ interface DonutChartProps {
 // positive는 --primary(브랜드 강조색), negative는 --destructive(경고색)를 재사용해
 // 별도의 차트 전용 색상 토큰을 만들지 않는다.
 const STROKE_BY_TOKEN: Record<DonutChartDatum["colorToken"], string> = {
-  positive: "hsl(var(--primary))",
-  negative: "hsl(var(--destructive))",
+  positive: "var(--primary)",
+  negative: "var(--destructive)",
 };
 
 /**
@@ -54,7 +54,7 @@ export function DonutChart({ data, size = 120 }: DonutChartProps) {
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="hsl(var(--muted))"
+          stroke="var(--muted)"
           strokeWidth={strokeWidth}
         />
         {segments.map((segment) => (
