@@ -1,6 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
+import {
+  EXPERIMENT_PATH_PREFIXES,
+  PARTICIPANT_INFO_COOKIE,
+} from "../constants/participant";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -46,6 +50,23 @@ export async function updateSession(request: NextRequest) {
   // with the Supabase client, your users may be randomly logged out.
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
+
+  // 실험 참여자 인적사항 입력 가드.
+  // "/"(인적사항 입력 화면)에서 서버 액션(submitParticipantInfo)이 정보를 검증하고
+  // PARTICIPANT_INFO_COOKIE를 심어야만 실험 환경(홈: /categories 등) 접근을 허용한다.
+  // 클라이언트 라우팅(router.push)만으로는 URL 직접 접근을 막을 수 없으므로 여기서 서버 사이드로 강제한다.
+  const hasSubmittedParticipantInfo = Boolean(
+    request.cookies.get(PARTICIPANT_INFO_COOKIE)?.value,
+  );
+  const isExperimentPath = EXPERIMENT_PATH_PREFIXES.some((prefix) =>
+    request.nextUrl.pathname.startsWith(prefix),
+  );
+
+  if (isExperimentPath && !hasSubmittedParticipantInfo) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
 
   const publicPathPrefixes = [
     "/categories",
