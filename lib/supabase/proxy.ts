@@ -5,6 +5,8 @@ import {
   EXPERIMENT_PATH_PREFIXES,
   PARTICIPANT_INFO_COOKIE,
 } from "../constants/participant";
+import { ADMIN_SESSION_COOKIE } from "../constants/admin-auth";
+import { verifyAdminSessionToken } from "../utils/admin-session";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -55,16 +57,36 @@ export async function updateSession(request: NextRequest) {
   // "/"(인적사항 입력 화면)에서 서버 액션(submitParticipantInfo)이 정보를 검증하고
   // PARTICIPANT_INFO_COOKIE를 심어야만 실험 환경(홈: /categories 등) 접근을 허용한다.
   // 클라이언트 라우팅(router.push)만으로는 URL 직접 접근을 막을 수 없으므로 여기서 서버 사이드로 강제한다.
+  // 관리자 세션(ADMIN_SESSION_COOKIE)이 유효한 경우에도 참여자 정보 입력 없이 통과시킨다
+  // (관리자가 매번 인적사항을 입력하지 않고 실험 환경을 확인할 수 있어야 하기 때문).
   const hasSubmittedParticipantInfo = Boolean(
     request.cookies.get(PARTICIPANT_INFO_COOKIE)?.value,
+  );
+  const hasValidAdminSession = await verifyAdminSessionToken(
+    request.cookies.get(ADMIN_SESSION_COOKIE)?.value,
   );
   const isExperimentPath = EXPERIMENT_PATH_PREFIXES.some((prefix) =>
     request.nextUrl.pathname.startsWith(prefix),
   );
 
-  if (isExperimentPath && !hasSubmittedParticipantInfo) {
+  if (
+    isExperimentPath &&
+    !hasSubmittedParticipantInfo &&
+    !hasValidAdminSession
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
+    url.searchParams.set("error", "access_denied");
+    return NextResponse.redirect(url);
+  }
+
+  // /admin(로그인 페이지 제외)은 관리자 세션이 유효해야만 접근 가능하다.
+  const isAdminPath = request.nextUrl.pathname.startsWith("/admin");
+  const isAdminLoginPath = request.nextUrl.pathname.startsWith("/admin/login");
+
+  if (isAdminPath && !isAdminLoginPath && !hasValidAdminSession) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin/login";
     return NextResponse.redirect(url);
   }
 
@@ -74,8 +96,6 @@ export async function updateSession(request: NextRequest) {
     "/hospitals",
     "/events",
     "/mypage",
-    // /admin 하위 전체: 관리자 인증을 사용하지 않는 실험용 플랫폼이므로
-    // /admin은 항상 공개 경로로 유지한다.
     "/admin",
   ];
 
