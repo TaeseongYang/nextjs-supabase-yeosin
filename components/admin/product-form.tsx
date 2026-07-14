@@ -25,12 +25,14 @@ interface ProductFormProps {
   categories: Category[];
   hospitals: Hospital[];
   initialProduct?: TreatmentProduct;
+  initialHospital?: Hospital | null;
 }
 
 const emptyForm: ProductFormViewModel = {
   name: "",
   categoryId: "",
-  hospitalId: "",
+  hospitalName: "",
+  hospitalRegion: "",
   originalPrice: 0,
   discountPrice: 0,
   includesVat: false,
@@ -47,6 +49,7 @@ export function ProductForm({
   categories,
   hospitals,
   initialProduct,
+  initialHospital,
 }: ProductFormProps) {
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState<ProductFormViewModel>(
@@ -54,7 +57,8 @@ export function ProductForm({
       ? {
           name: initialProduct.name,
           categoryId: initialProduct.categoryId,
-          hospitalId: initialProduct.hospitalId,
+          hospitalName: initialHospital?.name ?? "",
+          hospitalRegion: initialHospital?.region ?? "",
           originalPrice: initialProduct.originalPrice,
           discountPrice: initialProduct.discountPrice,
           includesVat: initialProduct.includesVat,
@@ -148,6 +152,16 @@ export function ProductForm({
     }
   };
 
+  // 입력한 이름이 기존 병원 목록과 일치하면 지역을 자동으로 채워준다.
+  // 일치하지 않으면(신규 병원) 지역은 사용자가 직접 입력해야 한다.
+  const handleHospitalNameChange = (name: string) => {
+    updateField("hospitalName", name);
+    const matched = hospitals.find((hospital) => hospital.name === name);
+    if (matched) {
+      updateField("hospitalRegion", matched.region);
+    }
+  };
+
   const removeDetailImage = (index: number) => {
     updateField(
       "detailImageUrls",
@@ -171,7 +185,8 @@ export function ProductForm({
     const formData = new FormData();
     formData.set("name", result.data.name);
     formData.set("categoryId", result.data.categoryId);
-    formData.set("hospitalId", result.data.hospitalId);
+    formData.set("hospitalName", result.data.hospitalName);
+    formData.set("hospitalRegion", result.data.hospitalRegion);
     formData.set("originalPrice", String(result.data.originalPrice));
     formData.set("discountPrice", String(result.data.discountPrice));
     formData.set("includesVat", String(result.data.includesVat));
@@ -214,7 +229,7 @@ export function ProductForm({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="grid gap-2">
           <Label htmlFor="categoryId">카테고리</Label>
           <Select
@@ -240,25 +255,38 @@ export function ProductForm({
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="hospitalId">병원</Label>
-          <Select
-            value={form.hospitalId}
-            onValueChange={(value) => updateField("hospitalId", value)}
-          >
-            <SelectTrigger id="hospitalId" className="w-full">
-              <SelectValue placeholder="병원을 선택하세요" />
-            </SelectTrigger>
-            <SelectContent>
-              {hospitals.map((hospital) => (
-                <SelectItem key={hospital.id} value={hospital.id}>
-                  {hospital.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {fieldErrors.hospitalId && (
+          <Label htmlFor="hospitalName">병원</Label>
+          <Input
+            id="hospitalName"
+            list="hospital-name-options"
+            placeholder="병원명을 입력하세요"
+            value={form.hospitalName}
+            onChange={(e) => handleHospitalNameChange(e.target.value)}
+            autoComplete="off"
+          />
+          <datalist id="hospital-name-options">
+            {hospitals.map((hospital) => (
+              <option key={hospital.id} value={hospital.name} />
+            ))}
+          </datalist>
+          {fieldErrors.hospitalName && (
             <p className="text-sm text-destructive">
-              {fieldErrors.hospitalId[0]}
+              {fieldErrors.hospitalName[0]}
+            </p>
+          )}
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="hospitalRegion">지역</Label>
+          <Input
+            id="hospitalRegion"
+            placeholder="예: 서울 강남구"
+            value={form.hospitalRegion}
+            onChange={(e) => updateField("hospitalRegion", e.target.value)}
+          />
+          {fieldErrors.hospitalRegion && (
+            <p className="text-sm text-destructive">
+              {fieldErrors.hospitalRegion[0]}
             </p>
           )}
         </div>

@@ -13,7 +13,8 @@ function parseProductFormData(formData: FormData) {
   return productSchema.safeParse({
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
-    hospitalId: formData.get("hospitalId"),
+    hospitalName: formData.get("hospitalName"),
+    hospitalRegion: formData.get("hospitalRegion"),
     originalPrice: Number(formData.get("originalPrice")),
     discountPrice: Number(formData.get("discountPrice")),
     includesVat: formData.get("includesVat") === "true",
@@ -25,6 +26,37 @@ function parseProductFormData(formData: FormData) {
       String(formData.get("detailImageUrls") ?? "[]"),
     ),
   });
+}
+
+// 병원명을 입력값으로 받아 동일한 이름의 기존 병원이 있으면 그 id를 재사용하고,
+// 없으면 새 병원 행을 생성해 id를 반환한다(관리자 상품 폼에서 병원을 직접 타이핑해
+// 등록할 수 있도록 지원). 이름 일치는 대소문자/공백을 그대로 비교한다.
+async function resolveHospitalId(
+  supabase: ReturnType<typeof createServiceClient>,
+  name: string,
+  region: string,
+): Promise<{ id: string } | { error: string }> {
+  const { data: existing, error: findError } = await supabase
+    .from("hospitals")
+    .select("id")
+    .eq("name", name)
+    .maybeSingle();
+  if (findError) {
+    return { error: "병원 조회 중 오류가 발생했습니다." };
+  }
+  if (existing) {
+    return { id: existing.id };
+  }
+
+  const { data: created, error: insertError } = await supabase
+    .from("hospitals")
+    .insert({ name, region })
+    .select("id")
+    .single();
+  if (insertError || !created) {
+    return { error: "병원 등록 중 오류가 발생했습니다." };
+  }
+  return { id: created.id };
 }
 
 // 관리자 CRUD는 인증 없이 서버 측(Server Action) 신뢰 컨텍스트에서 수행되는 것을 전제로 하므로
@@ -39,10 +71,22 @@ export async function createProduct(formData: FormData) {
   }
 
   const supabase = createServiceClient();
+  const hospitalResult = await resolveHospitalId(
+    supabase,
+    result.data.hospitalName,
+    result.data.hospitalRegion,
+  );
+  if ("error" in hospitalResult) {
+    return {
+      success: false as const,
+      fieldErrors: { _form: [hospitalResult.error] },
+    };
+  }
+
   const { error } = await supabase.from("treatment_products").insert({
     name: result.data.name,
     category_id: result.data.categoryId,
-    hospital_id: result.data.hospitalId,
+    hospital_id: hospitalResult.id,
     original_price: result.data.originalPrice,
     discount_price: result.data.discountPrice,
     includes_vat: result.data.includesVat,
@@ -78,12 +122,24 @@ export async function updateProduct(
   }
 
   const supabase = createServiceClient();
+  const hospitalResult = await resolveHospitalId(
+    supabase,
+    result.data.hospitalName,
+    result.data.hospitalRegion,
+  );
+  if ("error" in hospitalResult) {
+    return {
+      success: false as const,
+      fieldErrors: { _form: [hospitalResult.error] },
+    };
+  }
+
   const { error } = await supabase
     .from("treatment_products")
     .update({
       name: result.data.name,
       category_id: result.data.categoryId,
-      hospital_id: result.data.hospitalId,
+      hospital_id: hospitalResult.id,
       original_price: result.data.originalPrice,
       discount_price: result.data.discountPrice,
       includes_vat: result.data.includesVat,

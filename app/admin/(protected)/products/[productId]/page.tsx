@@ -37,6 +37,7 @@ async function AdminProductFormContent({ params }: AdminProductFormPageProps) {
         categories={categories}
         hospitals={hospitals}
         initialProduct={result.product}
+        initialHospital={result.hospital}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import type { ReviewAttributeType } from "./attribute";
+import type { ReviewAttributeType, ReviewSentimentType } from "./attribute";
 
 export interface AdminProfile {
   id: string;
@@ -9,7 +9,8 @@ export interface AdminProfile {
 export interface ProductFormViewModel {
   name: string;
   categoryId: string;
-  hospitalId: string;
+  hospitalName: string;
+  hospitalRegion: string;
   originalPrice: number;
   discountPrice: number;
   includesVat: boolean;
@@ -23,8 +24,6 @@ export interface ProductFormViewModel {
 export interface ReviewSummaryFormViewModel {
   productId: string;
   attribute: ReviewAttributeType | null;
-  positiveRatio: number;
-  negativeRatio: number;
   positiveBullets: string[];
   negativeBullets: string[];
 }
@@ -34,5 +33,8 @@ export interface ReviewFormViewModel {
   authorLabel: string;
   rating: number;
   content: string;
-  attributeTags: ReviewAttributeType[];
+  attributeTags: {
+    attribute: ReviewAttributeType;
+    sentiment: ReviewSentimentType;
+  }[];
 }
