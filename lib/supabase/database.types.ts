@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string
+          id: string
+          password_hash: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          password_hash: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          password_hash?: string
+          username?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -114,14 +135,17 @@ export type Database = {
         Row: {
           attribute: Database["public"]["Enums"]["review_attribute"]
           review_id: string
+          sentiment: Database["public"]["Enums"]["review_sentiment"]
         }
         Insert: {
           attribute: Database["public"]["Enums"]["review_attribute"]
           review_id: string
+          sentiment?: Database["public"]["Enums"]["review_sentiment"]
         }
         Update: {
           attribute?: Database["public"]["Enums"]["review_attribute"]
           review_id?: string
+          sentiment?: Database["public"]["Enums"]["review_sentiment"]
         }
         Relationships: [
           {
@@ -138,9 +162,7 @@ export type Database = {
           attribute: Database["public"]["Enums"]["review_attribute"] | null
           id: string
           negative_bullets: string[]
-          negative_ratio: number
           positive_bullets: string[]
-          positive_ratio: number
           product_id: string
           updated_at: string
         }
@@ -148,9 +170,7 @@ export type Database = {
           attribute?: Database["public"]["Enums"]["review_attribute"] | null
           id?: string
           negative_bullets?: string[]
-          negative_ratio: number
           positive_bullets?: string[]
-          positive_ratio: number
           product_id: string
           updated_at?: string
         }
@@ -158,9 +178,7 @@ export type Database = {
           attribute?: Database["public"]["Enums"]["review_attribute"] | null
           id?: string
           negative_bullets?: string[]
-          negative_ratio?: number
           positive_bullets?: string[]
-          positive_ratio?: number
           product_id?: string
           updated_at?: string
         }
@@ -277,12 +295,50 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      review_attribute_sentiment_ratios: {
+        Row: {
+          attribute: Database["public"]["Enums"]["review_attribute"] | null
+          negative_count: number | null
+          negative_ratio: number | null
+          positive_count: number | null
+          positive_ratio: number | null
+          product_id: string | null
+          rated_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_overall_sentiment_ratios: {
+        Row: {
+          negative_count: number | null
+          negative_ratio: number | null
+          positive_count: number | null
+          positive_ratio: number | null
+          product_id: string | null
+          rated_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       upsert_review_with_tags: {
         Args: {
-          p_attribute_tags: Database["public"]["Enums"]["review_attribute"][]
+          p_attribute_tags: Json
           p_author_label: string
           p_content: string
           p_created_at: string
@@ -300,6 +356,7 @@ export type Database = {
         | "price"
         | "effect"
         | "pain"
+      review_sentiment: "positive" | "negative" | "neutral"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -428,6 +485,7 @@ export const Constants = {
   public: {
     Enums: {
       review_attribute: ["medical_staff", "service", "price", "effect", "pain"],
+      review_sentiment: ["positive", "negative", "neutral"],
     },
   },
 } as const
