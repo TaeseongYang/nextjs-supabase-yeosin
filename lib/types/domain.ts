@@ -1,4 +1,4 @@
-import type { ReviewAttributeType } from "./attribute";
+import type { ReviewAttributeType, ReviewSentimentType } from "./attribute";
 
 export interface Category {
   id: string;
@@ -28,6 +28,11 @@ export interface TreatmentProduct {
   detailImageUrls: string[];
 }
 
+export interface ReviewAttributeTag {
+  attribute: ReviewAttributeType;
+  sentiment: ReviewSentimentType;
+}
+
 export interface Review {
   id: string;
   productId: string;
@@ -35,15 +40,24 @@ export interface Review {
   rating: number;
   content: string;
   createdAt: string;
-  attributeTags: ReviewAttributeType[];
+  attributeTags: ReviewAttributeTag[];
 }
 
 export interface ReviewSummary {
   id: string;
   productId: string;
   attribute: ReviewAttributeType | null;
-  positiveRatio: number;
-  negativeRatio: number;
   positiveBullets: string[];
   negativeBullets: string[];
+}
+
+// review_attribute_sentiment_ratios/review_overall_sentiment_ratios 뷰에서 조회한
+// 긍정/부정 집계 결과. positive+negative 태그가 0건이면 ratio는 null(집계 불가).
+export interface ReviewSentimentRatio {
+  attribute: ReviewAttributeType | null;
+  positiveCount: number;
+  negativeCount: number;
+  ratedCount: number;
+  positiveRatio: number | null;
+  negativeRatio: number | null;
 }

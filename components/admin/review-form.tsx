@@ -6,12 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { saveReview } from "@/lib/actions/reviews";
-import { ATTRIBUTE_LABELS, REVIEW_ATTRIBUTES } from "@/lib/types/attribute";
+import {
+  ATTRIBUTE_LABELS,
+  REVIEW_ATTRIBUTES,
+  REVIEW_SENTIMENTS,
+  SENTIMENT_LABELS,
+} from "@/lib/types/attribute";
 import { reviewSchema } from "@/lib/validations/review-schema";
 import type { Review } from "@/lib/types/domain";
-import type { ReviewAttributeType } from "@/lib/types/attribute";
+import type {
+  ReviewAttributeType,
+  ReviewSentimentType,
+} from "@/lib/types/attribute";
 
 interface ReviewFormProps {
   productId: string;
@@ -23,10 +32,13 @@ interface ReviewFormProps {
 function buildEmptyForm(productId: string) {
   return {
     authorLabel: "",
-    rating: 5,
+    rating: 10,
     content: "",
     createdAt: new Date().toISOString().slice(0, 10),
-    attributeTags: [] as ReviewAttributeType[],
+    attributeTags: [] as {
+      attribute: ReviewAttributeType;
+      sentiment: ReviewSentimentType;
+    }[],
     productId,
   };
 }
@@ -56,11 +68,29 @@ export function ReviewForm({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
   const toggleAttribute = (attribute: ReviewAttributeType) => {
+    setForm((prev) => {
+      const exists = prev.attributeTags.some((t) => t.attribute === attribute);
+      return {
+        ...prev,
+        attributeTags: exists
+          ? prev.attributeTags.filter((t) => t.attribute !== attribute)
+          : [
+              ...prev.attributeTags,
+              { attribute, sentiment: "positive" as ReviewSentimentType },
+            ],
+      };
+    });
+  };
+
+  const setSentiment = (
+    attribute: ReviewAttributeType,
+    sentiment: ReviewSentimentType,
+  ) => {
     setForm((prev) => ({
       ...prev,
-      attributeTags: prev.attributeTags.includes(attribute)
-        ? prev.attributeTags.filter((a) => a !== attribute)
-        : [...prev.attributeTags, attribute],
+      attributeTags: prev.attributeTags.map((t) =>
+        t.attribute === attribute ? { ...t, sentiment } : t,
+      ),
     }));
   };
 
@@ -115,12 +145,13 @@ export function ReviewForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="rating">평점 (1~5)</Label>
+          <Label htmlFor="rating">평점 (0~10)</Label>
           <Input
             id="rating"
             type="number"
-            min={1}
-            max={5}
+            min={0}
+            max={10}
+            step={0.01}
             value={form.rating}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, rating: Number(e.target.value) }))
@@ -160,18 +191,52 @@ export function ReviewForm({
       <div className="grid gap-2">
         <Label>속성 태그</Label>
         <div className="flex flex-col gap-2">
-          {REVIEW_ATTRIBUTES.map((attribute) => (
-            <div key={attribute} className="flex items-center gap-2">
-              <Checkbox
-                id={`attr-${attribute}`}
-                checked={form.attributeTags.includes(attribute)}
-                onCheckedChange={() => toggleAttribute(attribute)}
-              />
-              <Label htmlFor={`attr-${attribute}`}>
-                {ATTRIBUTE_LABELS[attribute]}
-              </Label>
-            </div>
-          ))}
+          {REVIEW_ATTRIBUTES.map((attribute) => {
+            const tag = form.attributeTags.find(
+              (t) => t.attribute === attribute,
+            );
+            return (
+              <div key={attribute} className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`attr-${attribute}`}
+                    checked={!!tag}
+                    onCheckedChange={() => toggleAttribute(attribute)}
+                  />
+                  <Label htmlFor={`attr-${attribute}`}>
+                    {ATTRIBUTE_LABELS[attribute]}
+                  </Label>
+                </div>
+                {tag && (
+                  <RadioGroup
+                    value={tag.sentiment}
+                    onValueChange={(value) =>
+                      setSentiment(attribute, value as ReviewSentimentType)
+                    }
+                    className="ml-6 flex flex-row gap-4"
+                  >
+                    {REVIEW_SENTIMENTS.map((sentiment) => (
+                      <div
+                        key={sentiment}
+                        className="flex items-center gap-1.5"
+                      >
+                        <RadioGroupItem
+                          id={`attr-${attribute}-${sentiment}`}
+                          value={sentiment}
+                        />
+                        <Label
+                          htmlFor={`attr-${attribute}-${sentiment}`}
+                          className="text-sm font-normal"
+                        >
+                          {SENTIMENT_LABELS[sentiment]}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

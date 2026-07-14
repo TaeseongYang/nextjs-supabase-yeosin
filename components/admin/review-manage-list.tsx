@@ -108,8 +108,11 @@ export function ReviewManageList({
                   </span>
                   <p className="text-sm text-foreground">{review.content}</p>
                   <div className="flex flex-wrap gap-1">
-                    {review.attributeTags.map((attribute) => (
-                      <AttributeTag key={attribute} attribute={attribute} />
+                    {review.attributeTags.map((tag) => (
+                      <AttributeTag
+                        key={tag.attribute}
+                        attribute={tag.attribute}
+                      />
                     ))}
                   </div>
                 </CardContent>

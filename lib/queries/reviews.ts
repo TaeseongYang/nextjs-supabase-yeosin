@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Review } from "@/lib/types/domain";
+import type { Review, ReviewAttributeTag } from "@/lib/types/domain";
 import type { ReviewAttributeType } from "@/lib/types/attribute";
 
 /**
@@ -56,14 +56,14 @@ export async function getReviewsByProductWithTags(
   const reviewIds = reviewRows.map((row) => row.id);
   const { data: tagRows, error: tagError } = await supabase
     .from("review_attribute_tags")
-    .select("review_id, attribute")
+    .select("review_id, attribute, sentiment")
     .in("review_id", reviewIds);
   if (tagError) throw tagError;
 
-  const tagsByReviewId = new Map<string, ReviewAttributeType[]>();
+  const tagsByReviewId = new Map<string, ReviewAttributeTag[]>();
   for (const tagRow of tagRows ?? []) {
     const existing = tagsByReviewId.get(tagRow.review_id) ?? [];
-    existing.push(tagRow.attribute);
+    existing.push({ attribute: tagRow.attribute, sentiment: tagRow.sentiment });
     tagsByReviewId.set(tagRow.review_id, existing);
   }
 

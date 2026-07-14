@@ -15,3 +15,13 @@ export const ATTRIBUTE_LABELS: Record<ReviewAttributeType, string> = {
   effect: "시술효과",
   pain: "시술통증",
 };
+
+export const REVIEW_SENTIMENTS = ["positive", "negative", "neutral"] as const;
+
+export type ReviewSentimentType = (typeof REVIEW_SENTIMENTS)[number];
+
+export const SENTIMENT_LABELS: Record<ReviewSentimentType, string> = {
+  positive: "긍정",
+  negative: "부정",
+  neutral: "중립",
+};

@@ -5,48 +5,16 @@ interface RatingStarsProps {
   size?: number;
 }
 
-const STAR_COUNT = 5;
-
 /**
- * 5점 만점 별점을 소수점 단위까지 부드럽게(부분 채움) 표시하는 컴포넌트.
- * 배경에 빈 별 5개를 깔고, 그 위에 rating 비율만큼만 보이는 채워진 별 5개를
- * overflow-hidden 레이어로 겹쳐 그려 부분 채움을 표현한다.
+ * 0~10점 평점을 별 아이콘 1개 + 숫자(소수점 둘째 자리)로 표시하는 컴포넌트.
+ * 별 5개를 나열해 부분 채움으로 점수를 표현하던 기존 방식은 10점 만점 체계와
+ * 맞지 않아, 쿠팡/여기어때 등에서 흔히 쓰는 "별 1개 + 숫자" 표기로 대체했다.
  */
 export function RatingStars({ rating, size = 16 }: RatingStarsProps) {
   return (
-    <div
-      className="inline-flex gap-0.5"
-      role="img"
-      aria-label={`5점 만점에 ${rating}점`}
-    >
-      {Array.from({ length: STAR_COUNT }).map((_, index) => {
-        const fillPercentage = Math.min(
-          Math.max((rating - index) * 100, 0),
-          100,
-        );
-        return (
-          <div
-            key={index}
-            className="relative"
-            style={{ width: size, height: size }}
-          >
-            {/* 배경 레이어: 빈 별 */}
-            <Star
-              size={size}
-              className="absolute inset-0 text-muted-foreground"
-              aria-hidden
-            />
-            {/* 전경 레이어: 별 하나 단위로 rating 비율만큼만 노출 */}
-            <div
-              className="absolute inset-0 overflow-hidden"
-              style={{ width: `${fillPercentage}%` }}
-              aria-hidden
-            >
-              <Star size={size} className="fill-primary text-primary" />
-            </div>
-          </div>
-        );
-      })}
+    <div className="inline-flex items-center gap-1">
+      <Star size={size} className="fill-primary text-primary" aria-hidden />
+      <span className="text-sm font-medium">{rating.toFixed(2)}</span>
     </div>
   );
 }

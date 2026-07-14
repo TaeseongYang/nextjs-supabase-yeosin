@@ -4,20 +4,19 @@ import { useState, useTransition } from "react";
 
 import { BulletListInput } from "@/components/admin/bullet-list-input";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DonutChart } from "@/components/charts/donut-chart";
 import { upsertReviewSummary } from "@/lib/actions/review-summaries";
 import { ATTRIBUTE_LABELS, REVIEW_ATTRIBUTES } from "@/lib/types/attribute";
 import { reviewSummarySchema } from "@/lib/validations/review-summary-schema";
 import type { ReviewAttributeType } from "@/lib/types/attribute";
-import type { ReviewSummary } from "@/lib/types/domain";
+import type { ReviewSummary, ReviewSentimentRatio } from "@/lib/types/domain";
 import type { ReviewSummaryFormViewModel } from "@/lib/types/admin";
 
 interface ReviewSummaryFormProps {
   productId: string;
   initialSummaries: ReviewSummary[];
+  sentimentRatios: ReviewSentimentRatio[];
 }
 
 // 탭 키: "all"(전체 요약) + 5개 속성. null attribute를 문자열 키로 표현하기 위해 사용한다.
@@ -40,8 +39,6 @@ function buildEmptyForm(
   return {
     productId,
     attribute,
-    positiveRatio: 0,
-    negativeRatio: 0,
     positiveBullets: [],
     negativeBullets: [],
   };
@@ -56,8 +53,6 @@ function buildFormFromSummary(
   return {
     productId,
     attribute: summary.attribute,
-    positiveRatio: summary.positiveRatio,
-    negativeRatio: summary.negativeRatio,
     positiveBullets: summary.positiveBullets,
     negativeBullets: summary.negativeBullets,
   };
@@ -65,9 +60,13 @@ function buildFormFromSummary(
 
 // 리뷰 요약 입력 폼. 탭(전체+5속성)마다 독립적인 폼 상태를 갖고, 저장 시
 // upsertReviewSummary 서버 액션(select 후 update/insert 분기)을 호출한다.
+// 긍정/부정 비율은 더 이상 직접 입력받지 않고, 개별 리뷰의 속성 태그 감성을 집계한
+// sentimentRatios(review_attribute_sentiment_ratios/review_overall_sentiment_ratios 뷰)를
+// 읽기 전용으로 표시한다.
 export function ReviewSummaryForm({
   productId,
   initialSummaries,
+  sentimentRatios,
 }: ReviewSummaryFormProps) {
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<TabKey>("all");
@@ -96,6 +95,9 @@ export function ReviewSummaryForm({
 
   const form = formsByTab[activeTab];
   const fieldErrors = fieldErrorsByTab[activeTab] ?? {};
+  const currentRatio = sentimentRatios.find(
+    (r) => r.attribute === toAttribute(activeTab),
+  );
 
   const updateForm = (partial: Partial<ReviewSummaryFormViewModel>) => {
     setFormsByTab((prev) => ({
@@ -117,17 +119,6 @@ export function ReviewSummaryForm({
       return;
     }
 
-    // 스키마에 없는 커스텀 검증: 긍정/부정 비율 합은 100을 초과할 수 없다.
-    if (form.positiveRatio + form.negativeRatio > 100) {
-      setFieldErrorsByTab((prev) => ({
-        ...prev,
-        [activeTab]: {
-          _form: ["긍정/부정 비율의 합은 100을 초과할 수 없습니다."],
-        },
-      }));
-      return;
-    }
-
     setFieldErrorsByTab((prev) => ({ ...prev, [activeTab]: {} }));
 
     const formData = new FormData();
@@ -135,8 +126,6 @@ export function ReviewSummaryForm({
     if (result.data.attribute) {
       formData.set("attribute", result.data.attribute);
     }
-    formData.set("positiveRatio", String(result.data.positiveRatio));
-    formData.set("negativeRatio", String(result.data.negativeRatio));
     formData.set(
       "positiveBullets",
       JSON.stringify(result.data.positiveBullets),
@@ -163,12 +152,12 @@ export function ReviewSummaryForm({
   const donutData = [
     {
       label: "긍정",
-      value: form.positiveRatio,
+      value: currentRatio?.positiveRatio ?? 0,
       colorToken: "positive" as const,
     },
     {
       label: "부정",
-      value: form.negativeRatio,
+      value: currentRatio?.negativeRatio ?? 0,
       colorToken: "negative" as const,
     },
   ];
@@ -192,40 +181,29 @@ export function ReviewSummaryForm({
             <form onSubmit={handleSubmit} className="flex flex-col gap-6 pt-4">
               <DonutChart data={donutData} />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="positiveRatio">긍정 비율(%)</Label>
-                  <Input
-                    id="positiveRatio"
-                    type="number"
-                    value={form.positiveRatio}
-                    onChange={(e) =>
-                      updateForm({ positiveRatio: Number(e.target.value) })
-                    }
-                  />
-                  {fieldErrors.positiveRatio && (
-                    <p className="text-sm text-red-500">
-                      {fieldErrors.positiveRatio[0]}
-                    </p>
-                  )}
+              <div className="grid grid-cols-2 gap-4 rounded-md border p-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">
+                    긍정 비율(자동 계산)
+                  </span>
+                  <p className="text-lg font-semibold text-primary">
+                    {currentRatio?.positiveRatio ?? "–"}%
+                  </p>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="negativeRatio">부정 비율(%)</Label>
-                  <Input
-                    id="negativeRatio"
-                    type="number"
-                    value={form.negativeRatio}
-                    onChange={(e) =>
-                      updateForm({ negativeRatio: Number(e.target.value) })
-                    }
-                  />
-                  {fieldErrors.negativeRatio && (
-                    <p className="text-sm text-red-500">
-                      {fieldErrors.negativeRatio[0]}
-                    </p>
-                  )}
+                <div>
+                  <span className="text-muted-foreground">
+                    부정 비율(자동 계산)
+                  </span>
+                  <p className="text-lg font-semibold text-destructive">
+                    {currentRatio?.negativeRatio ?? "–"}%
+                  </p>
                 </div>
               </div>
+              {(!currentRatio || currentRatio.ratedCount === 0) && (
+                <p className="text-xs text-muted-foreground">
+                  긍정/부정으로 평가된 태그가 없어 비율을 계산할 수 없습니다.
+                </p>
+              )}
 
               <BulletListInput
                 label="긍정 bullet"

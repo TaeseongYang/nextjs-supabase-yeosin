@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { ReviewSummary } from "@/lib/types/domain";
+import type { ReviewSummary, ReviewSentimentRatio } from "@/lib/types/domain";
 import type { ReviewAttributeType } from "@/lib/types/attribute";
 
 /**
@@ -15,9 +15,7 @@ export async function getOverallReviewSummary(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("review_summaries")
-    .select(
-      "id, product_id, attribute, positive_ratio, negative_ratio, positive_bullets, negative_bullets",
-    )
+    .select("id, product_id, attribute, positive_bullets, negative_bullets")
     .eq("product_id", productId)
     .is("attribute", null)
     .maybeSingle();
@@ -30,8 +28,6 @@ export async function getOverallReviewSummary(
     id: data.id,
     productId: data.product_id,
     attribute: data.attribute,
-    positiveRatio: data.positive_ratio,
-    negativeRatio: data.negative_ratio,
     positiveBullets: data.positive_bullets,
     negativeBullets: data.negative_bullets,
   };
@@ -49,9 +45,7 @@ export async function getReviewSummariesByProduct(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("review_summaries")
-    .select(
-      "id, product_id, attribute, positive_ratio, negative_ratio, positive_bullets, negative_bullets",
-    )
+    .select("id, product_id, attribute, positive_bullets, negative_bullets")
     .eq("product_id", productId);
   if (error) {
     if (error.code === "22P02") return [];
@@ -61,8 +55,6 @@ export async function getReviewSummariesByProduct(
     id: row.id,
     productId: row.product_id,
     attribute: row.attribute,
-    positiveRatio: row.positive_ratio,
-    negativeRatio: row.negative_ratio,
     positiveBullets: row.positive_bullets,
     negativeBullets: row.negative_bullets,
   }));
@@ -82,9 +74,7 @@ export async function getReviewSummaryByAttribute(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("review_summaries")
-    .select(
-      "id, product_id, attribute, positive_ratio, negative_ratio, positive_bullets, negative_bullets",
-    )
+    .select("id, product_id, attribute, positive_bullets, negative_bullets")
     .eq("product_id", productId)
     .eq("attribute", attribute)
     .maybeSingle();
@@ -97,9 +87,119 @@ export async function getReviewSummaryByAttribute(
     id: data.id,
     productId: data.product_id,
     attribute: data.attribute,
-    positiveRatio: data.positive_ratio,
-    negativeRatio: data.negative_ratio,
     positiveBullets: data.positive_bullets,
     negativeBullets: data.negative_bullets,
   };
+}
+
+/**
+ * 상품 전체 긍정/부정 비율(모든 속성 태그 합산, F004)을 review_overall_sentiment_ratios
+ * 뷰에서 조회한다. PostgREST가 group by/집계를 지원하지 않으므로 DB 뷰로 미리 집계해둔
+ * 결과를 단순 select하는 방식을 사용한다.
+ */
+export async function getOverallSentimentRatio(
+  productId: string,
+): Promise<ReviewSentimentRatio | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("review_overall_sentiment_ratios")
+    .select(
+      "positive_count, negative_count, rated_count, positive_ratio, negative_ratio",
+    )
+    .eq("product_id", productId)
+    .maybeSingle();
+  if (error) {
+    if (error.code === "22P02") return null;
+    throw error;
+  }
+  if (!data) return null;
+  return {
+    attribute: null,
+    positiveCount: data.positive_count ?? 0,
+    negativeCount: data.negative_count ?? 0,
+    ratedCount: data.rated_count ?? 0,
+    positiveRatio: data.positive_ratio,
+    negativeRatio: data.negative_ratio,
+  };
+}
+
+/**
+ * 상품의 특정 속성 긍정/부정 비율(F005)을 review_attribute_sentiment_ratios 뷰에서 조회한다.
+ */
+export async function getAttributeSentimentRatio(
+  productId: string,
+  attribute: ReviewAttributeType,
+): Promise<ReviewSentimentRatio | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("review_attribute_sentiment_ratios")
+    .select(
+      "attribute, positive_count, negative_count, rated_count, positive_ratio, negative_ratio",
+    )
+    .eq("product_id", productId)
+    .eq("attribute", attribute)
+    .maybeSingle();
+  if (error) {
+    if (error.code === "22P02") return null;
+    throw error;
+  }
+  if (!data) return null;
+  return {
+    attribute: data.attribute,
+    positiveCount: data.positive_count ?? 0,
+    negativeCount: data.negative_count ?? 0,
+    ratedCount: data.rated_count ?? 0,
+    positiveRatio: data.positive_ratio,
+    negativeRatio: data.negative_ratio,
+  };
+}
+
+/**
+ * 관리자 요약 관리 화면(탭 UI)의 모든 탭(전체+5속성) 비율을 한 번에 조회한다.
+ * review_attribute_sentiment_ratios는 attribute별 행만 갖고 전체 합산 행이 없으므로,
+ * overall은 review_overall_sentiment_ratios에서 별도로 가져와 병합한다.
+ */
+export async function getAllSentimentRatiosByProduct(
+  productId: string,
+): Promise<ReviewSentimentRatio[]> {
+  const supabase = await createClient();
+  const [{ data: overallRow }, { data: attrRows }] = await Promise.all([
+    supabase
+      .from("review_overall_sentiment_ratios")
+      .select(
+        "positive_count, negative_count, rated_count, positive_ratio, negative_ratio",
+      )
+      .eq("product_id", productId)
+      .maybeSingle(),
+    supabase
+      .from("review_attribute_sentiment_ratios")
+      .select(
+        "attribute, positive_count, negative_count, rated_count, positive_ratio, negative_ratio",
+      )
+      .eq("product_id", productId),
+  ]);
+
+  const results: ReviewSentimentRatio[] = [];
+  if (overallRow) {
+    results.push({
+      attribute: null,
+      positiveCount: overallRow.positive_count ?? 0,
+      negativeCount: overallRow.negative_count ?? 0,
+      ratedCount: overallRow.rated_count ?? 0,
+      positiveRatio: overallRow.positive_ratio,
+      negativeRatio: overallRow.negative_ratio,
+    });
+  }
+  for (const row of attrRows ?? []) {
+    if (!row.attribute) continue;
+    results.push({
+      attribute: row.attribute,
+      positiveCount: row.positive_count ?? 0,
+      negativeCount: row.negative_count ?? 0,
+      ratedCount: row.rated_count ?? 0,
+      positiveRatio: row.positive_ratio,
+      negativeRatio: row.negative_ratio,
+    });
+  }
+  return results;
 }

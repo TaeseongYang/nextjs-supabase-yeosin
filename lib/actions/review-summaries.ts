@@ -20,8 +20,6 @@ export async function upsertReviewSummary(formData: FormData) {
     attribute: rawAttribute
       ? (String(rawAttribute) as ReviewAttributeType)
       : null,
-    positiveRatio: Number(formData.get("positiveRatio")),
-    negativeRatio: Number(formData.get("negativeRatio")),
     positiveBullets: JSON.parse(
       String(formData.get("positiveBullets") ?? "[]"),
     ),
@@ -38,25 +36,9 @@ export async function upsertReviewSummary(formData: FormData) {
     };
   }
 
-  // 스키마에 없는 커스텀 검증: 긍정/부정 비율 합은 100을 초과할 수 없다.
-  if (result.data.positiveRatio + result.data.negativeRatio > 100) {
-    return {
-      success: false as const,
-      fieldErrors: {
-        _form: ["긍정+부정 비율의 합은 100을 초과할 수 없습니다."],
-      },
-    };
-  }
-
   const supabase = createServiceClient();
-  const {
-    productId,
-    attribute,
-    positiveRatio,
-    negativeRatio,
-    positiveBullets,
-    negativeBullets,
-  } = result.data;
+  const { productId, attribute, positiveBullets, negativeBullets } =
+    result.data;
 
   let query = supabase
     .from("review_summaries")
@@ -74,8 +56,6 @@ export async function upsertReviewSummary(formData: FormData) {
   }
 
   const payload = {
-    positive_ratio: positiveRatio,
-    negative_ratio: negativeRatio,
     positive_bullets: positiveBullets,
     negative_bullets: negativeBullets,
   };
