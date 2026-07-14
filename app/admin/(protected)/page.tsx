@@ -96,9 +96,14 @@ async function AdminDashboard() {
     <div className="mx-auto flex max-w-5xl flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">시술 상품 관리</h1>
-        <Button asChild size="sm">
-          <Link href="/admin/products/new">신규 상품 등록</Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link href="/categories">실험 환경 보기</Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link href="/admin/products/new">신규 상품 등록</Link>
+          </Button>
+        </div>
       </div>
 
       {totalProductCount === 0 ? (
