@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ThumbsDown, ThumbsUp } from "lucide-react";
 
 import { AttributeTag } from "@/components/product/attribute-tag";
 import { DonutChart } from "@/components/charts/donut-chart";
@@ -10,7 +10,10 @@ import { ConsultButton } from "@/components/layout/consult-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { buildReviewSummaryViewModel } from "@/lib/utils/review-summary-view-model";
 import { getProductById } from "@/lib/queries/products";
-import { getReviewSummaryByAttribute } from "@/lib/queries/review-summaries";
+import {
+  getAttributeSentimentRatio,
+  getReviewSummaryByAttribute,
+} from "@/lib/queries/review-summaries";
 import { getReviewsByProductAndAttribute } from "@/lib/queries/reviews";
 import {
   REVIEW_ATTRIBUTES,
@@ -37,12 +40,14 @@ async function ProductReviewsByAttribute({
   const productWithHospital = await getProductById(productId);
   if (!productWithHospital) notFound();
 
-  const summary = await getReviewSummaryByAttribute(productId, attribute);
-  const viewModel = summary ? buildReviewSummaryViewModel(summary) : null;
-  const filteredReviews = await getReviewsByProductAndAttribute(
-    productId,
-    attribute,
-  );
+  const [summary, ratio, filteredReviews] = await Promise.all([
+    getReviewSummaryByAttribute(productId, attribute),
+    getAttributeSentimentRatio(productId, attribute),
+    getReviewsByProductAndAttribute(productId, attribute),
+  ]);
+  const viewModel = summary
+    ? buildReviewSummaryViewModel(summary, ratio)
+    : null;
 
   return (
     <div className="pb-20">
@@ -71,14 +76,28 @@ async function ProductReviewsByAttribute({
                 <span className="text-sm font-semibold">AI가 요약한 후기</span>
               </div>
               <DonutChart data={viewModel.donutData} />
-              <ul className="list-disc pl-5 text-sm leading-relaxed text-foreground">
-                {viewModel.positiveBullets.map((bullet) => (
-                  <li key={bullet}>{bullet}</li>
-                ))}
-                {viewModel.negativeBullets.map((bullet) => (
-                  <li key={bullet}>{bullet}</li>
-                ))}
-              </ul>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 text-sm font-medium text-primary">
+                  <ThumbsUp className="size-4" />
+                  긍정
+                </div>
+                <ul className="list-disc pl-5 text-sm leading-relaxed text-foreground">
+                  {viewModel.positiveBullets.map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 text-sm font-medium text-destructive">
+                  <ThumbsDown className="size-4" />
+                  부정
+                </div>
+                <ul className="list-disc pl-5 text-sm leading-relaxed text-foreground">
+                  {viewModel.negativeBullets.map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              </div>
               <div className="pt-1">
                 <p className="text-sm font-medium">
                   어떤 키워드에 관심이 있으신가요?

@@ -11,7 +11,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { buildReviewSummaryViewModel } from "@/lib/utils/review-summary-view-model";
 import { getProductById } from "@/lib/queries/products";
 import { getReviewsByProduct } from "@/lib/queries/reviews";
-import { getOverallReviewSummary } from "@/lib/queries/review-summaries";
+import {
+  getOverallReviewSummary,
+  getOverallSentimentRatio,
+} from "@/lib/queries/review-summaries";
 import { REVIEW_ATTRIBUTES } from "@/lib/types/attribute";
 
 interface ProductReviewsPageProps {
@@ -31,9 +34,13 @@ async function ProductReviews({ params }: ProductReviewsPageProps) {
       : productReviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount;
 
   // 전체 요약(attribute === null)만 조회한다. 요약이 없는 상품도 존재한다.
-  const overallSummary = await getOverallReviewSummary(productId);
+  // bullets(수동 입력)와 ratio(태그 감성 자동 집계)를 병렬로 조회해 함께 조합한다.
+  const [overallSummary, overallRatio] = await Promise.all([
+    getOverallReviewSummary(productId),
+    getOverallSentimentRatio(productId),
+  ]);
   const overallViewModel = overallSummary
-    ? buildReviewSummaryViewModel(overallSummary)
+    ? buildReviewSummaryViewModel(overallSummary, overallRatio)
     : null;
 
   // 참고 디자인처럼 긍정/부정 bullet 배열을 하나의 문단으로 이어붙인다.
@@ -62,7 +69,7 @@ async function ProductReviews({ params }: ProductReviewsPageProps) {
           <CardContent className="flex items-center gap-3 p-4">
             <Star className="size-8 fill-primary text-primary" />
             <span className="text-2xl font-bold">
-              {averageRating.toFixed(1)}
+              {averageRating.toFixed(2)}
             </span>
             <span className="text-xs text-muted-foreground">
               총 {reviewCount}개의 후기 평점이에요
