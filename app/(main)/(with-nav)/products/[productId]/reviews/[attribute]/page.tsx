@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ChevronLeft, ThumbsDown, ThumbsUp } from "lucide-react";
@@ -9,6 +9,7 @@ import { ReviewCard } from "@/components/review/review-card";
 import { ConsultButton } from "@/components/layout/consult-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { buildReviewSummaryViewModel } from "@/lib/utils/review-summary-view-model";
+import { getExperimentGroup } from "@/lib/utils/experiment-group";
 import { getProductById } from "@/lib/queries/products";
 import {
   getAttributeSentimentRatio,
@@ -36,6 +37,13 @@ async function ProductReviewsByAttribute({
 }: ProductReviewsByAttributePageProps) {
   const { productId, attribute } = await params;
   if (!isReviewAttributeType(attribute)) notFound();
+
+  // 실험 환경 B(목록형)는 속성별 요약 개념이 없으므로, 직접 URL 접근 등으로
+  // 이 경로에 도달해도 전체 리뷰 목록(/reviews)으로 돌려보낸다.
+  const group = await getExperimentGroup();
+  if (group === "b") {
+    redirect(`/products/${productId}/reviews`);
+  }
 
   const productWithHospital = await getProductById(productId);
   if (!productWithHospital) notFound();

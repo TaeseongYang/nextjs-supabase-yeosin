@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 
 import { DeleteProductButton } from "@/components/admin/delete-product-button";
+import { setAdminExperimentGroup } from "@/lib/actions/admin-experiment-group";
 import {
   Accordion,
   AccordionContent,
@@ -97,9 +98,16 @@ async function AdminDashboard() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">시술 상품 관리</h1>
         <div className="flex gap-2">
-          <Button asChild size="sm" variant="outline">
-            <Link href="/categories">실험 환경 보기</Link>
-          </Button>
+          <form action={setAdminExperimentGroup.bind(null, "a")}>
+            <Button type="submit" size="sm" variant="outline">
+              실험 환경 A 보기
+            </Button>
+          </form>
+          <form action={setAdminExperimentGroup.bind(null, "b")}>
+            <Button type="submit" size="sm" variant="outline">
+              실험 환경 B 보기
+            </Button>
+          </form>
           <Button asChild size="sm">
             <Link href="/admin/products/new">신규 상품 등록</Link>
           </Button>

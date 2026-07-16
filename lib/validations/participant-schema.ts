@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { EXPERIMENT_GROUP_VALUES } from "@/lib/constants/participant";
+
 export const GENDER_OPTIONS = [
   { value: "female", label: "여성" },
   { value: "male", label: "남성" },
@@ -16,6 +18,7 @@ export const participantSchema = z.object({
   gender: z.enum(["female", "male"]),
   age: z.number().int().positive().max(120),
   hasOnlineExperience: z.enum(["yes", "no"]),
+  experimentGroup: z.enum(EXPERIMENT_GROUP_VALUES),
 });
 
 export type ParticipantFormInput = z.infer<typeof participantSchema>;

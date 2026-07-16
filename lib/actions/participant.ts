@@ -3,7 +3,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { PARTICIPANT_INFO_COOKIE } from "@/lib/constants/participant";
+import {
+  PARTICIPANT_GROUP_COOKIE,
+  PARTICIPANT_INFO_COOKIE,
+} from "@/lib/constants/participant";
 import { createServiceClient } from "@/lib/supabase/service";
 import { participantSchema } from "@/lib/validations/participant-schema";
 
@@ -17,6 +20,7 @@ export async function submitParticipantInfo(formData: FormData) {
     gender: formData.get("gender"),
     age: Number(formData.get("age")),
     hasOnlineExperience: formData.get("hasOnlineExperience"),
+    experimentGroup: formData.get("experimentGroup"),
   });
 
   if (!result.success) {
@@ -33,6 +37,7 @@ export async function submitParticipantInfo(formData: FormData) {
     gender: result.data.gender,
     age: result.data.age,
     has_online_experience: result.data.hasOnlineExperience,
+    experiment_group: result.data.experimentGroup,
   });
 
   if (error) {
@@ -45,14 +50,20 @@ export async function submitParticipantInfo(formData: FormData) {
   }
 
   const cookieStore = await cookies();
-  cookieStore.set(PARTICIPANT_INFO_COOKIE, "1", {
+  const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "lax" as const,
     path: "/",
     // 세션 종료 후에도 유지되어야 재접속 시 재입력을 요구하지 않는다 (30일).
     maxAge: 60 * 60 * 24 * 30,
-  });
+  };
+  cookieStore.set(PARTICIPANT_INFO_COOKIE, "1", cookieOptions);
+  cookieStore.set(
+    PARTICIPANT_GROUP_COOKIE,
+    result.data.experimentGroup,
+    cookieOptions,
+  );
 
   redirect("/categories");
 }

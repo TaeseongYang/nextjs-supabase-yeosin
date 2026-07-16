@@ -1,21 +1,20 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
-import { ChevronLeft, Star, ThumbsDown, ThumbsUp } from "lucide-react";
+import { ChevronLeft, Star } from "lucide-react";
 
-import { AttributeTag } from "@/components/product/attribute-tag";
+import { ReviewOverallSummaryCard } from "@/components/review/overall-summary-card";
 import { ReviewCard } from "@/components/review/review-card";
 import { ConsultButton } from "@/components/layout/consult-button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { buildReviewSummaryViewModel } from "@/lib/utils/review-summary-view-model";
+import { getExperimentGroup } from "@/lib/utils/experiment-group";
 import { getProductById } from "@/lib/queries/products";
 import { getReviewsByProduct } from "@/lib/queries/reviews";
 import {
   getOverallReviewSummary,
   getOverallSentimentRatio,
 } from "@/lib/queries/review-summaries";
-import { REVIEW_ATTRIBUTES } from "@/lib/types/attribute";
 
 interface ProductReviewsPageProps {
   params: Promise<{ productId: string }>;
@@ -26,6 +25,8 @@ async function ProductReviews({ params }: ProductReviewsPageProps) {
   const result = await getProductById(productId);
   if (!result) notFound();
 
+  const group = await getExperimentGroup();
+
   const productReviews = await getReviewsByProduct(productId);
   const reviewCount = productReviews.length;
   const averageRating =
@@ -33,19 +34,19 @@ async function ProductReviews({ params }: ProductReviewsPageProps) {
       ? 0
       : productReviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount;
 
+  // 실험 환경 B(목록형)는 요약을 보여주지 않으므로 요약 조회 자체를 건너뛴다.
   // 전체 요약(attribute === null)만 조회한다. 요약이 없는 상품도 존재한다.
   // bullets(수동 입력)와 ratio(태그 감성 자동 집계)를 병렬로 조회해 함께 조합한다.
-  const [overallSummary, overallRatio] = await Promise.all([
-    getOverallReviewSummary(productId),
-    getOverallSentimentRatio(productId),
-  ]);
+  const [overallSummary, overallRatio] =
+    group === "a"
+      ? await Promise.all([
+          getOverallReviewSummary(productId),
+          getOverallSentimentRatio(productId),
+        ])
+      : [null, null];
   const overallViewModel = overallSummary
     ? buildReviewSummaryViewModel(overallSummary, overallRatio)
     : null;
-
-  // 참고 디자인처럼 긍정/부정 bullet 배열을 하나의 문단으로 이어붙인다.
-  const positiveParagraph = overallViewModel?.positiveBullets.join(" ") ?? "";
-  const negativeParagraph = overallViewModel?.negativeBullets.join(" ") ?? "";
 
   return (
     <div className="pb-20">
@@ -78,83 +79,13 @@ async function ProductReviews({ params }: ProductReviewsPageProps) {
         </Card>
       </div>
 
-      {/* AI 요약 카드: 요약 문단 + 키워드 안내 문구 + 키워드 태그 목록을 하나의 카드로 통합 */}
-      <div className="px-4">
-        {overallViewModel ? (
-          <Card className="shadow-sm">
-            <CardContent className="flex flex-col gap-4 p-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold">AI가 요약한 후기</span>
-                <Badge variant="secondary" className="text-[10px]">
-                  Beta
-                </Badge>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1.5 text-sm font-medium text-primary">
-                  <ThumbsUp className="size-4" />
-                  긍정
-                </div>
-                <p className="text-sm leading-relaxed text-foreground">
-                  {positiveParagraph}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1.5 text-sm font-medium text-destructive">
-                  <ThumbsDown className="size-4" />
-                  부정
-                </div>
-                <p className="text-sm leading-relaxed text-foreground">
-                  {negativeParagraph}
-                </p>
-              </div>
-              <div className="pt-1">
-                <p className="text-sm font-medium">
-                  어떤 키워드에 관심이 있으신가요?
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  선택한 키워드의 요약 결과를 보여드려요
-                </p>
-                <div className="flex gap-3 overflow-x-auto pt-3">
-                  {REVIEW_ATTRIBUTES.map((attr) => (
-                    <Link
-                      key={attr}
-                      href={`/products/${productId}/reviews/${attr}`}
-                    >
-                      <AttributeTag attribute={attr} />
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="flex flex-col gap-4 p-4">
-              <p className="text-sm text-muted-foreground">
-                아직 등록된 리뷰 요약이 없습니다.
-              </p>
-              <div className="pt-1">
-                <p className="text-sm font-medium">
-                  어떤 키워드에 관심이 있으신가요?
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  선택한 키워드의 요약 결과를 보여드려요
-                </p>
-                <div className="flex gap-3 overflow-x-auto pt-3">
-                  {REVIEW_ATTRIBUTES.map((attr) => (
-                    <Link
-                      key={attr}
-                      href={`/products/${productId}/reviews/${attr}`}
-                    >
-                      <AttributeTag attribute={attr} />
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      {/* 실험 환경 A(요약형)에서만 AI 요약 카드를 보여준다. B(목록형)는 아래 개별 리뷰 목록만 노출한다. */}
+      {group === "a" && (
+        <ReviewOverallSummaryCard
+          productId={productId}
+          viewModel={overallViewModel}
+        />
+      )}
 
       <div className="flex flex-col gap-2 px-4 pt-5">
         {productReviews.map((review) => (
