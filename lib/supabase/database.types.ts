@@ -84,6 +84,7 @@ export type Database = {
         Row: {
           age: number
           created_at: string
+          experiment_group: string
           gender: string
           has_online_experience: string
           id: string
@@ -91,6 +92,7 @@ export type Database = {
         Insert: {
           age: number
           created_at?: string
+          experiment_group?: string
           gender: string
           has_online_experience: string
           id?: string
@@ -98,6 +100,7 @@ export type Database = {
         Update: {
           age?: number
           created_at?: string
+          experiment_group?: string
           gender?: string
           has_online_experience?: string
           id?: string
