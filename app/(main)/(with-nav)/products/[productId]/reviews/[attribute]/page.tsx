@@ -1,20 +1,16 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
-import { ChevronLeft, ThumbsDown, ThumbsUp } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 
 import { AttributeTag } from "@/components/product/attribute-tag";
-import { DonutChart } from "@/components/charts/donut-chart";
 import { ReviewCard } from "@/components/review/review-card";
 import { ConsultButton } from "@/components/layout/consult-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { buildReviewSummaryViewModel } from "@/lib/utils/review-summary-view-model";
 import { getExperimentGroup } from "@/lib/utils/experiment-group";
 import { getProductById } from "@/lib/queries/products";
-import {
-  getAttributeSentimentRatio,
-  getReviewSummaryByAttribute,
-} from "@/lib/queries/review-summaries";
+import { getReviewSummaryByAttribute } from "@/lib/queries/review-summaries";
 import { getReviewsByProductAndAttribute } from "@/lib/queries/reviews";
 import {
   REVIEW_ATTRIBUTES,
@@ -38,24 +34,20 @@ async function ProductReviewsByAttribute({
   const { productId, attribute } = await params;
   if (!isReviewAttributeType(attribute)) notFound();
 
-  // 실험 환경 B(목록형)는 속성별 요약 개념이 없으므로, 직접 URL 접근 등으로
-  // 이 경로에 도달해도 전체 리뷰 목록(/reviews)으로 돌려보낸다.
+  // B(목록형)와 C(총평형)는 속성별 요약 진입을 차단한다(C는 총평만 제공하도록 의도적으로 차단).
   const group = await getExperimentGroup();
-  if (group === "b") {
+  if (group === "b" || group === "c") {
     redirect(`/products/${productId}/reviews`);
   }
 
   const productWithHospital = await getProductById(productId);
   if (!productWithHospital) notFound();
 
-  const [summary, ratio, filteredReviews] = await Promise.all([
+  const [summary, filteredReviews] = await Promise.all([
     getReviewSummaryByAttribute(productId, attribute),
-    getAttributeSentimentRatio(productId, attribute),
     getReviewsByProductAndAttribute(productId, attribute),
   ]);
-  const viewModel = summary
-    ? buildReviewSummaryViewModel(summary, ratio)
-    : null;
+  const viewModel = summary ? buildReviewSummaryViewModel(summary) : null;
 
   return (
     <div className="pb-20">
@@ -74,7 +66,7 @@ async function ProductReviewsByAttribute({
         </h1>
       </div>
 
-      {/* 속성별 요약 카드: 도넛 차트(비율 포함) + bullet 목록 + 키워드 태그 목록을
+      {/* 속성별 요약 카드: bullet 목록 + 키워드 태그 목록을
           파일 1의 AI 요약 카드와 동일한 카드 톤(그림자, 패딩, 여백)으로 통합 */}
       <div className="p-4">
         {viewModel ? (
@@ -83,29 +75,9 @@ async function ProductReviewsByAttribute({
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold">AI가 요약한 후기</span>
               </div>
-              <DonutChart data={viewModel.donutData} />
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1.5 text-sm font-medium text-primary">
-                  <ThumbsUp className="size-4" />
-                  긍정
-                </div>
-                <ul className="list-disc pl-5 text-sm leading-relaxed text-foreground">
-                  {viewModel.positiveBullets.map((bullet) => (
-                    <li key={bullet}>{bullet}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1.5 text-sm font-medium text-destructive">
-                  <ThumbsDown className="size-4" />
-                  부정
-                </div>
-                <ul className="list-disc pl-5 text-sm leading-relaxed text-foreground">
-                  {viewModel.negativeBullets.map((bullet) => (
-                    <li key={bullet}>{bullet}</li>
-                  ))}
-                </ul>
-              </div>
+              <p className="text-sm leading-relaxed text-foreground">
+                {viewModel.bullets.join(" ")}
+              </p>
               <div className="pt-1">
                 <p className="text-sm font-medium">
                   어떤 키워드에 관심이 있으신가요?

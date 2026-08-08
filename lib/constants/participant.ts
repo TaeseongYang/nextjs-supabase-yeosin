@@ -2,12 +2,12 @@
 // proxy.ts(서버 가드)와 Server Action(app/actions/participant.ts) 양쪽에서 공유한다.
 export const PARTICIPANT_INFO_COOKIE = "participant_info_submitted";
 
-// 참여자가 인적사항 입력 시 직접 선택한 실험 그룹(A/B)을 기록하는 쿠키 이름.
+// 참여자가 인적사항 입력 시 직접 선택한 실험 그룹(A/B/C)을 기록하는 쿠키 이름.
 // submitParticipantInfo가 설정하고, lib/utils/experiment-group.ts가 읽어 화면 분기에 사용한다.
 export const PARTICIPANT_GROUP_COOKIE = "participant_experiment_group";
 
-// 두 실험 환경(A: 요약형, B: 목록형)을 구분하는 값.
-export const EXPERIMENT_GROUP_VALUES = ["a", "b"] as const;
+// 세 실험 환경(A: 요약형, B: 목록형, C: 총평형 — 전체 요약만 제공)을 구분하는 값.
+export const EXPERIMENT_GROUP_VALUES = ["a", "b", "c"] as const;
 
 export type ExperimentGroup = (typeof EXPERIMENT_GROUP_VALUES)[number];
 

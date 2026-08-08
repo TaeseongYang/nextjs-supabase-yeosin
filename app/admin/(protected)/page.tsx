@@ -108,6 +108,11 @@ async function AdminDashboard() {
               실험 환경 B 보기
             </Button>
           </form>
+          <form action={setAdminExperimentGroup.bind(null, "c")}>
+            <Button type="submit" size="sm" variant="outline">
+              실험 환경 C 보기
+            </Button>
+          </form>
           <Button asChild size="sm">
             <Link href="/admin/products/new">신규 상품 등록</Link>
           </Button>

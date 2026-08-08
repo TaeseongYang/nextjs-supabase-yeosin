@@ -178,7 +178,7 @@ export function ParticipantInfoForm() {
             <p className="text-sm text-destructive">{fieldErrors._form[0]}</p>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Button
               type="button"
               disabled={isPending}
@@ -196,6 +196,15 @@ export function ParticipantInfoForm() {
               {isPending && pendingGroup === "b"
                 ? "이동 중..."
                 : "환경 B로 시작"}
+            </Button>
+            <Button
+              type="button"
+              disabled={isPending}
+              onClick={() => handleSubmit("c")}
+            >
+              {isPending && pendingGroup === "c"
+                ? "이동 중..."
+                : "환경 C로 시작"}
             </Button>
           </div>
         </form>

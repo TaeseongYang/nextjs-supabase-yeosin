@@ -11,10 +11,7 @@ import { buildReviewSummaryViewModel } from "@/lib/utils/review-summary-view-mod
 import { getExperimentGroup } from "@/lib/utils/experiment-group";
 import { getProductById } from "@/lib/queries/products";
 import { getReviewsByProduct } from "@/lib/queries/reviews";
-import {
-  getOverallReviewSummary,
-  getOverallSentimentRatio,
-} from "@/lib/queries/review-summaries";
+import { getOverallReviewSummary } from "@/lib/queries/review-summaries";
 
 interface ProductReviewsPageProps {
   params: Promise<{ productId: string }>;
@@ -34,18 +31,14 @@ async function ProductReviews({ params }: ProductReviewsPageProps) {
       ? 0
       : productReviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount;
 
-  // 실험 환경 B(목록형)는 요약을 보여주지 않으므로 요약 조회 자체를 건너뛴다.
-  // 전체 요약(attribute === null)만 조회한다. 요약이 없는 상품도 존재한다.
-  // bullets(수동 입력)와 ratio(태그 감성 자동 집계)를 병렬로 조회해 함께 조합한다.
-  const [overallSummary, overallRatio] =
-    group === "a"
-      ? await Promise.all([
-          getOverallReviewSummary(productId),
-          getOverallSentimentRatio(productId),
-        ])
-      : [null, null];
+  // A(요약형)와 C(총평형)는 전체 요약(attribute === null)을 조회한다.
+  // B(목록형)는 요약을 보여주지 않으므로 조회 자체를 건너뛴다. 요약이 없는 상품도 존재한다.
+  const overallSummary =
+    group === "a" || group === "c"
+      ? await getOverallReviewSummary(productId)
+      : null;
   const overallViewModel = overallSummary
-    ? buildReviewSummaryViewModel(overallSummary, overallRatio)
+    ? buildReviewSummaryViewModel(overallSummary)
     : null;
 
   return (
@@ -79,11 +72,12 @@ async function ProductReviews({ params }: ProductReviewsPageProps) {
         </Card>
       </div>
 
-      {/* 실험 환경 A(요약형)에서만 AI 요약 카드를 보여준다. B(목록형)는 아래 개별 리뷰 목록만 노출한다. */}
-      {group === "a" && (
+      {/* A·C에서 AI 요약 카드를 보여준다. C는 카드는 보이되 속성별 이동 키워드 태그는 숨긴다. */}
+      {(group === "a" || group === "c") && (
         <ReviewOverallSummaryCard
           productId={productId}
           viewModel={overallViewModel}
+          showAttributeLinks={group === "a"}
         />
       )}
 
