@@ -2,21 +2,20 @@
 
 import { useState, useTransition } from "react";
 
-import { BulletListInput } from "@/components/admin/bullet-list-input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DonutChart } from "@/components/charts/donut-chart";
+import { Textarea } from "@/components/ui/textarea";
 import { upsertReviewSummary } from "@/lib/actions/review-summaries";
 import { ATTRIBUTE_LABELS, REVIEW_ATTRIBUTES } from "@/lib/types/attribute";
 import { reviewSummarySchema } from "@/lib/validations/review-summary-schema";
 import type { ReviewAttributeType } from "@/lib/types/attribute";
-import type { ReviewSummary, ReviewSentimentRatio } from "@/lib/types/domain";
+import type { ReviewSummary } from "@/lib/types/domain";
 import type { ReviewSummaryFormViewModel } from "@/lib/types/admin";
 
 interface ReviewSummaryFormProps {
   productId: string;
   initialSummaries: ReviewSummary[];
-  sentimentRatios: ReviewSentimentRatio[];
 }
 
 // 탭 키: "all"(전체 요약) + 5개 속성. null attribute를 문자열 키로 표현하기 위해 사용한다.
@@ -39,8 +38,7 @@ function buildEmptyForm(
   return {
     productId,
     attribute,
-    positiveBullets: [],
-    negativeBullets: [],
+    bullets: [],
   };
 }
 
@@ -53,20 +51,15 @@ function buildFormFromSummary(
   return {
     productId,
     attribute: summary.attribute,
-    positiveBullets: summary.positiveBullets,
-    negativeBullets: summary.negativeBullets,
+    bullets: summary.bullets,
   };
 }
 
 // 리뷰 요약 입력 폼. 탭(전체+5속성)마다 독립적인 폼 상태를 갖고, 저장 시
 // upsertReviewSummary 서버 액션(select 후 update/insert 분기)을 호출한다.
-// 긍정/부정 비율은 더 이상 직접 입력받지 않고, 개별 리뷰의 속성 태그 감성을 집계한
-// sentimentRatios(review_attribute_sentiment_ratios/review_overall_sentiment_ratios 뷰)를
-// 읽기 전용으로 표시한다.
 export function ReviewSummaryForm({
   productId,
   initialSummaries,
-  sentimentRatios,
 }: ReviewSummaryFormProps) {
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<TabKey>("all");
@@ -95,9 +88,6 @@ export function ReviewSummaryForm({
 
   const form = formsByTab[activeTab];
   const fieldErrors = fieldErrorsByTab[activeTab] ?? {};
-  const currentRatio = sentimentRatios.find(
-    (r) => r.attribute === toAttribute(activeTab),
-  );
 
   const updateForm = (partial: Partial<ReviewSummaryFormViewModel>) => {
     setFormsByTab((prev) => ({
@@ -110,7 +100,13 @@ export function ReviewSummaryForm({
     e.preventDefault();
     setSubmitSuccessTab(null);
 
-    const result = reviewSummarySchema.safeParse(form);
+    // Textarea가 비어 있으면 [""](요소는 있지만 빈 문자열)이 되는데,
+    // 이는 "요약 없음"을 의미하므로 스키마 검증 전 빈 배열로 정규화한다.
+    const trimmedBullets = form.bullets.filter((b) => b.trim().length > 0);
+    const result = reviewSummarySchema.safeParse({
+      ...form,
+      bullets: trimmedBullets,
+    });
     if (!result.success) {
       setFieldErrorsByTab((prev) => ({
         ...prev,
@@ -126,14 +122,7 @@ export function ReviewSummaryForm({
     if (result.data.attribute) {
       formData.set("attribute", result.data.attribute);
     }
-    formData.set(
-      "positiveBullets",
-      JSON.stringify(result.data.positiveBullets),
-    );
-    formData.set(
-      "negativeBullets",
-      JSON.stringify(result.data.negativeBullets),
-    );
+    formData.set("bullets", JSON.stringify(result.data.bullets));
 
     const submittedTab = activeTab;
     startTransition(async () => {
@@ -148,19 +137,6 @@ export function ReviewSummaryForm({
       setSubmitSuccessTab(submittedTab);
     });
   };
-
-  const donutData = [
-    {
-      label: "긍정",
-      value: currentRatio?.positiveRatio ?? 0,
-      colorToken: "positive" as const,
-    },
-    {
-      label: "부정",
-      value: currentRatio?.negativeRatio ?? 0,
-      colorToken: "negative" as const,
-    },
-  ];
 
   return (
     <Tabs
@@ -179,43 +155,14 @@ export function ReviewSummaryForm({
         <TabsContent key={tab} value={tab}>
           {activeTab === tab && (
             <form onSubmit={handleSubmit} className="flex flex-col gap-6 pt-4">
-              <DonutChart data={donutData} />
-
-              <div className="grid grid-cols-2 gap-4 rounded-md border p-3 text-sm">
-                <div>
-                  <span className="text-muted-foreground">
-                    긍정 비율(자동 계산)
-                  </span>
-                  <p className="text-lg font-semibold text-primary">
-                    {currentRatio?.positiveRatio ?? "–"}%
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">
-                    부정 비율(자동 계산)
-                  </span>
-                  <p className="text-lg font-semibold text-destructive">
-                    {currentRatio?.negativeRatio ?? "–"}%
-                  </p>
-                </div>
+              <div className="grid gap-2">
+                <Label>bullet</Label>
+                <Textarea
+                  rows={4}
+                  value={form.bullets[0] ?? ""}
+                  onChange={(e) => updateForm({ bullets: [e.target.value] })}
+                />
               </div>
-              {(!currentRatio || currentRatio.ratedCount === 0) && (
-                <p className="text-xs text-muted-foreground">
-                  긍정/부정으로 평가된 태그가 없어 비율을 계산할 수 없습니다.
-                </p>
-              )}
-
-              <BulletListInput
-                label="긍정 bullet"
-                values={form.positiveBullets}
-                onChange={(values) => updateForm({ positiveBullets: values })}
-              />
-
-              <BulletListInput
-                label="부정 bullet"
-                values={form.negativeBullets}
-                onChange={(values) => updateForm({ negativeBullets: values })}
-              />
 
               {fieldErrors._form && (
                 <p className="text-sm text-red-500">{fieldErrors._form[0]}</p>

@@ -163,25 +163,22 @@ export type Database = {
       review_summaries: {
         Row: {
           attribute: Database["public"]["Enums"]["review_attribute"] | null
+          bullets: string[]
           id: string
-          negative_bullets: string[]
-          positive_bullets: string[]
           product_id: string
           updated_at: string
         }
         Insert: {
           attribute?: Database["public"]["Enums"]["review_attribute"] | null
+          bullets?: string[]
           id?: string
-          negative_bullets?: string[]
-          positive_bullets?: string[]
           product_id: string
           updated_at?: string
         }
         Update: {
           attribute?: Database["public"]["Enums"]["review_attribute"] | null
+          bullets?: string[]
           id?: string
-          negative_bullets?: string[]
-          positive_bullets?: string[]
           product_id?: string
           updated_at?: string
         }

@@ -20,12 +20,7 @@ export async function upsertReviewSummary(formData: FormData) {
     attribute: rawAttribute
       ? (String(rawAttribute) as ReviewAttributeType)
       : null,
-    positiveBullets: JSON.parse(
-      String(formData.get("positiveBullets") ?? "[]"),
-    ),
-    negativeBullets: JSON.parse(
-      String(formData.get("negativeBullets") ?? "[]"),
-    ),
+    bullets: JSON.parse(String(formData.get("bullets") ?? "[]")),
   };
 
   const result = reviewSummarySchema.safeParse(raw);
@@ -37,8 +32,7 @@ export async function upsertReviewSummary(formData: FormData) {
   }
 
   const supabase = createServiceClient();
-  const { productId, attribute, positiveBullets, negativeBullets } =
-    result.data;
+  const { productId, attribute, bullets } = result.data;
 
   let query = supabase
     .from("review_summaries")
@@ -55,10 +49,7 @@ export async function upsertReviewSummary(formData: FormData) {
     };
   }
 
-  const payload = {
-    positive_bullets: positiveBullets,
-    negative_bullets: negativeBullets,
-  };
+  const payload = { bullets };
 
   const { error } = existing
     ? await supabase

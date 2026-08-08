@@ -3,10 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ReviewSummaryForm } from "@/components/admin/review-summary-form";
 import { getProductById } from "@/lib/queries/products";
-import {
-  getAllSentimentRatiosByProduct,
-  getReviewSummariesByProduct,
-} from "@/lib/queries/review-summaries";
+import { getReviewSummariesByProduct } from "@/lib/queries/review-summaries";
 
 interface AdminReviewSummaryPageProps {
   params: Promise<{ productId: string }>;
@@ -20,10 +17,7 @@ async function AdminReviewSummary({ params }: AdminReviewSummaryPageProps) {
     notFound();
   }
 
-  const [initialSummaries, sentimentRatios] = await Promise.all([
-    getReviewSummariesByProduct(productId),
-    getAllSentimentRatiosByProduct(productId),
-  ]);
+  const initialSummaries = await getReviewSummariesByProduct(productId);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4">
@@ -33,7 +27,6 @@ async function AdminReviewSummary({ params }: AdminReviewSummaryPageProps) {
       <ReviewSummaryForm
         productId={productId}
         initialSummaries={initialSummaries}
-        sentimentRatios={sentimentRatios}
       />
     </div>
   );

@@ -24,8 +24,7 @@ export interface ProductFormViewModel {
 export interface ReviewSummaryFormViewModel {
   productId: string;
   attribute: ReviewAttributeType | null;
-  positiveBullets: string[];
-  negativeBullets: string[];
+  bullets: string[];
 }
 
 export interface ReviewFormViewModel {

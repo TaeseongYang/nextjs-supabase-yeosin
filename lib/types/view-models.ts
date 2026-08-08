@@ -13,18 +13,10 @@ export interface ProductCardViewModel {
   discountRate: number;
 }
 
-export interface DonutChartDatum {
-  label: string;
-  value: number;
-  colorToken: "positive" | "negative";
-}
-
 export interface ReviewSummaryViewModel {
   attribute: ReviewAttributeType | null;
   attributeLabel: string;
-  donutData: DonutChartDatum[];
-  positiveBullets: string[];
-  negativeBullets: string[];
+  bullets: string[];
 }
 
 // age는 입력 중 빈 문자열을 허용해야 하므로 string으로 관리하고 제출 시 Number()로 변환한다.
